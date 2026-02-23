@@ -9,8 +9,6 @@ export interface Order {
   delivery_lat?: number
   delivery_lng?: number
   created_at: string
-  phone_number?: string
-  email?: string
 }
 
 export interface OrderItem {

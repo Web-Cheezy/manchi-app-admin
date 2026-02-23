@@ -5,21 +5,37 @@ import { supabase } from '@/utils/supabase/client'
 import { Order, OrderStatus } from '@/types'
 import Link from 'next/link'
 
-type OrderWithItems = Order & {
-  order_items?: {
-    id: number
-    quantity: number
-    price_at_time: number
-    foods?: {
-      name: string
-    }
-  }[]
+type OrderOption = {
+  id?: number
+  name?: string
+  price?: number
+}
+
+type InlineOrderItem = {
+  food_id?: number | null
+  side_id?: number | null
+  name?: string
+  image_url?: string
+  quantity?: number
+  price_at_time?: number
+  options?: OrderOption[]
+}
+
+type AdminOrder = Order & {
+  items?: InlineOrderItem[] | { items?: InlineOrderItem[] } | null
+  profiles?: {
+    full_name?: string | null
+    phone_number?: string | null
+    email?: string | null
+  } | null
 }
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<OrderWithItems[]>([])
+  const [orders, setOrders] = useState<AdminOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all')
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'yesterday' | 'last_7_days' | 'this_week' | 'custom'>('all')
+  const [customDate, setCustomDate] = useState<string>('')
 
   useEffect(() => {
     fetchOrders()
@@ -29,13 +45,48 @@ export default function OrdersPage() {
     setLoading(true)
     const { data, error } = await supabase
       .from('orders')
-      .select('*, order_items(*, foods(name))')
+      .select('*')
       .order('created_at', { ascending: false })
     
     if (error) {
       console.error('Error fetching orders:', error)
     } else {
-      setOrders(data || [])
+      const rows: any[] = data || []
+
+      const userIds = Array.from(
+        new Set(rows.map((row) => row.user_id).filter(Boolean))
+      )
+
+      const profileMap = new Map<
+        string,
+        { full_name?: string | null; phone_number?: string | null; email?: string | null }
+      >()
+
+      if (userIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone_number, email')
+          .in('id', userIds)
+
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError)
+        } else {
+          for (const p of profilesData as any[]) {
+            profileMap.set(p.id, {
+              full_name: p.full_name ?? null,
+              phone_number: p.phone_number ?? null,
+              email: p.email ?? null,
+            })
+          }
+        }
+      }
+
+      const normalized: AdminOrder[] = rows.map((row) => ({
+        ...row,
+        profiles: profileMap.get(row.user_id) ?? null,
+      }))
+
+      setOrders(normalized)
     }
     setLoading(false)
   }
@@ -53,23 +104,102 @@ export default function OrdersPage() {
     }
   }
 
-  const filteredOrders = filter === 'all' 
-    ? orders 
-    : orders.filter(o => o.status === filter)
+  const isSameDay = (d: Date, target: Date) => {
+    return (
+      d.getFullYear() === target.getFullYear() &&
+      d.getMonth() === target.getMonth() &&
+      d.getDate() === target.getDate()
+    )
+  }
 
-  const getItemsSummary = (order: OrderWithItems) => {
-    const items = order.order_items || []
-    if (!items.length) return 'No items'
+  const isThisWeek = (d: Date) => {
+    const now = new Date()
+    const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay()
+    const monday = new Date(now)
+    monday.setHours(0, 0, 0, 0)
+    monday.setDate(now.getDate() - (dayOfWeek - 1))
+
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    sunday.setHours(23, 59, 59, 999)
+
+    return d >= monday && d <= sunday
+  }
+
+  const filteredOrders = orders.filter((o) => {
+    if (filter !== 'all' && o.status !== filter) return false
+
+    if (dateFilter === 'all') return true
+
+    const created = new Date(o.created_at)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    if (dateFilter === 'today') {
+      return isSameDay(created, today)
+    }
+
+    if (dateFilter === 'yesterday') {
+      const yesterday = new Date(today)
+      yesterday.setDate(today.getDate() - 1)
+      return isSameDay(created, yesterday)
+    }
+
+    if (dateFilter === 'last_7_days') {
+      const sevenDaysAgo = new Date(today)
+      sevenDaysAgo.setDate(today.getDate() - 6)
+      return created >= sevenDaysAgo && created <= new Date()
+    }
+
+    if (dateFilter === 'this_week') {
+      return isThisWeek(created)
+    }
+
+    if (dateFilter === 'custom' && customDate) {
+      const target = new Date(customDate)
+      return isSameDay(created, target)
+    }
+
+    return true
+  })
+
+  const getItemsSummary = (order: AdminOrder) => {
+    const raw = order.items as any
+    const items: InlineOrderItem[] | undefined = Array.isArray(raw)
+      ? raw
+      : raw && Array.isArray(raw.items)
+        ? raw.items
+        : undefined
+
+    if (!items || items.length === 0) return 'No items'
+
     return items
-      .map((item) => `${item.quantity}x ${item.foods?.name || 'Item'}`)
-      .join(', ')
+      .map((item) => {
+        const qty = item.quantity ?? 1
+        const baseName =
+          item.name ||
+          (item.food_id ? `Item ${item.food_id}` :
+            item.side_id ? `Side ${item.side_id}` :
+            'Item')
+
+        const optionsNames =
+          Array.isArray(item.options) && item.options.length
+            ? ` (${item.options
+                .map((opt) => opt?.name)
+                .filter(Boolean)
+                .join(', ')})`
+            : ''
+
+        return `${qty}x ${baseName}${optionsNames}`
+      })
+      .join(' • ')
   }
 
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight text-brand-charcoal">Orders</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <select 
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all shadow-sm bg-white"
             value={filter}
@@ -83,6 +213,34 @@ export default function OrdersPage() {
             <option value="delivered">Delivered</option>
             <option value="cancelled">Cancelled</option>
           </select>
+
+          <select
+            className="rounded-xl border border-gray-200 px-4 py-2 text-sm focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all shadow-sm bg-white"
+            value={dateFilter}
+            onChange={(e) => {
+              const value = e.target.value as typeof dateFilter
+              setDateFilter(value)
+              if (value !== 'custom') {
+                setCustomDate('')
+              }
+            }}
+          >
+            <option value="all">All Dates</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="this_week">This Week</option>
+            <option value="last_7_days">Last 7 Days</option>
+            <option value="custom">Specific Day</option>
+          </select>
+
+          {dateFilter === 'custom' && (
+            <input
+              type="date"
+              className="rounded-xl border border-gray-200 px-4 py-2 text-sm focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all shadow-sm bg-white"
+              value={customDate}
+              onChange={(e) => setCustomDate(e.target.value)}
+            />
+          )}
         </div>
       </div>
 
@@ -118,15 +276,20 @@ export default function OrdersPage() {
                         #{order.id}
                       </Link>
                     </td>
-                    <td className="px-6 py-4 text-gray-500 font-mono text-xs">
-                      {order.user_id.slice(0, 8)}...
+                    <td className="px-6 py-4 text-xs">
+                      <div className="font-medium text-brand-charcoal">
+                        {order.profiles?.full_name || 'Unknown customer'}
+                      </div>
+                      <div className="text-gray-500 font-mono text-[11px]">
+                        {order.user_id.slice(0, 8)}...
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-xs">
                       <div className="text-gray-900">
-                        {order.phone_number || 'No phone'}
+                        {order.profiles?.phone_number || 'No phone'}
                       </div>
                       <div className="text-gray-500">
-                        {order.email || 'No email'}
+                        {order.profiles?.email || 'No email'}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-gray-700">

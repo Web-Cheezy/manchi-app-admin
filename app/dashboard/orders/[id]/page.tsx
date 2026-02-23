@@ -6,9 +6,17 @@ import { Order, OrderItem, OrderStatus } from '@/types'
 import { ArrowLeft, MapPin, Phone, User } from 'lucide-react'
 import Link from 'next/link'
 
+type DetailedOrder = Order & {
+  profiles?: {
+    full_name?: string | null
+    phone_number?: string | null
+    email?: string | null
+  } | null
+}
+
 export default function OrderDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const [order, setOrder] = useState<Order | null>(null)
+  const [order, setOrder] = useState<DetailedOrder | null>(null)
   const [items, setItems] = useState<OrderItem[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -23,12 +31,23 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
         .eq('id', id)
         .single()
       
-      if (orderError) {
+      if (orderError || !orderData) {
         console.error('Error fetching order:', orderError)
         setLoading(false)
         return
       }
-      setOrder(orderData)
+
+      // Fetch Profile for contact info
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('full_name, phone_number, email')
+        .eq('id', orderData.user_id)
+        .maybeSingle()
+
+      setOrder({
+        ...orderData,
+        profiles: profileData ?? null,
+      })
 
       // Fetch Items with Food details
       const { data: itemsData, error: itemsError } = await supabase
@@ -93,16 +112,22 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
             Customer Info
           </h3>
           <div className="space-y-3 text-sm">
-            {order.phone_number && (
+            {order.profiles?.full_name && (
               <div>
-                <span className="text-gray-500 block">Phone</span>
-                <span className="font-medium">{order.phone_number}</span>
+                <span className="text-gray-500 block">Name</span>
+                <span className="font-medium">{order.profiles.full_name}</span>
               </div>
             )}
-            {order.email && (
+            {order.profiles?.phone_number && (
+              <div>
+                <span className="text-gray-500 block">Phone</span>
+                <span className="font-medium">{order.profiles.phone_number}</span>
+              </div>
+            )}
+            {order.profiles?.email && (
               <div>
                 <span className="text-gray-500 block">Email</span>
-                <span className="font-medium">{order.email}</span>
+                <span className="font-medium">{order.profiles.email}</span>
               </div>
             )}
             <div>
