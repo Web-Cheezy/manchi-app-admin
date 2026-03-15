@@ -1,14 +1,39 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/utils/supabase/client'
 import { CategoryList } from '@/components/dashboard/CategoryList'
 import { FoodList } from '@/components/dashboard/FoodList'
 import { SideList } from '@/components/dashboard/SideList'
 import { clsx } from 'clsx'
 
 export default function MenuPage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<'categories' | 'foods' | 'sides'>('categories')
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const checkRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+        
+        if (!profile || profile.role !== 'super_admin') {
+          router.replace('/dashboard')
+        }
+      }
+      setLoading(false)
+    }
+    checkRole()
+  }, [])
+
+  if (loading) return <div>Loading...</div>
 
   const handleCategorySelect = (category: any) => {
     setSelectedCategoryId(category.id)

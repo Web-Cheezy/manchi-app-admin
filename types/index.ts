@@ -9,6 +9,9 @@ export interface Order {
   delivery_lat?: number
   delivery_lng?: number
   created_at: string
+  items?: any[] // JSONB column from orders table
+  location?: string
+  delivery_method?: 'delivery' | 'pickup'
 }
 
 export interface OrderItem {
@@ -47,4 +50,13 @@ export interface Side {
   type?: string
   image_url?: string
   created_at: string
+}
+
+export interface Profile {
+  id: string
+  full_name?: string
+  phone_number?: string
+  email?: string
+  role?: 'super_admin' | 'admin' | 'customer'
+  location?: 'Chasemall' | 'Aurora' | 'All'
 }

@@ -9,20 +9,16 @@ type OrderOption = {
   id?: number
   name?: string
   price?: number
-}
-
-type InlineOrderItem = {
-  food_id?: number | null
-  side_id?: number | null
-  name?: string
-  image_url?: string
   quantity?: number
-  price_at_time?: number
-  options?: OrderOption[]
 }
 
 type AdminOrder = Order & {
-  items?: InlineOrderItem[] | { items?: InlineOrderItem[] } | null
+  order_items?: {
+    quantity: number
+    options?: OrderOption[]
+    foods?: { name: string } | null
+    sides?: { name: string } | null
+  }[]
   profiles?: {
     full_name?: string | null
     phone_number?: string | null
@@ -43,9 +39,10 @@ export default function OrdersPage() {
 
   const fetchOrders = async () => {
     setLoading(true)
+
     const { data, error } = await supabase
       .from('orders')
-      .select('*')
+      .select('*') // Ensure we get the 'items' JSONB column
       .order('created_at', { ascending: false })
     
     if (error) {
@@ -63,9 +60,11 @@ export default function OrdersPage() {
       >()
 
       if (userIds.length > 0) {
+        // Fetch profiles without 'email' since it's not in the public.profiles schema
+        // Fetch both 'phone' and 'phone_number' just in case
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
-          .select('id, full_name, phone_number, email')
+          .select('id, full_name, phone, phone_number')
           .in('id', userIds)
 
         if (profilesError) {
@@ -74,8 +73,8 @@ export default function OrdersPage() {
           for (const p of profilesData as any[]) {
             profileMap.set(p.id, {
               full_name: p.full_name ?? null,
-              phone_number: p.phone_number ?? null,
-              email: p.email ?? null,
+              phone_number: p.phone_number ?? p.phone ?? null,
+              email: null, // Email is not in profiles table
             })
           }
         }
@@ -92,15 +91,25 @@ export default function OrdersPage() {
   }
 
   const updateStatus = async (id: number, status: OrderStatus) => {
-    const { error } = await supabase
-      .from('orders')
-      .update({ status })
-      .eq('id', id)
-    
-    if (error) {
+    try {
+      const res = await fetch(`/api/admin/orders/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      })
+
+      if (!res.ok) {
+        console.error('Error updating status via backend API:', await res.text())
+        alert('Error updating status')
+        return
+      }
+
+      await fetchOrders()
+    } catch (err) {
+      console.error('Error updating status via backend API:', err)
       alert('Error updating status')
-    } else {
-      fetchOrders()
     }
   }
 
@@ -164,12 +173,19 @@ export default function OrdersPage() {
   })
 
   const getItemsSummary = (order: AdminOrder) => {
-    const raw = order.items as any
-    const items: InlineOrderItem[] | undefined = Array.isArray(raw)
-      ? raw
-      : raw && Array.isArray(raw.items)
-        ? raw.items
-        : undefined
+    // Check for JSONB items first (from 'items' column)
+    if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+      return order.items.map((item: any) => {
+        const qty = item.quantity ?? 1
+        const name = item.name || 'Item'
+        const optionsNames = Array.isArray(item.options) && item.options.length
+            ? ` (${item.options.map((o: any) => `${o.name} x${o.quantity || 1}`).filter(Boolean).join(', ')})`
+            : ''
+        return `${qty}x ${name}${optionsNames}`
+      }).join(' • ')
+    }
+
+    const items = order.order_items
 
     if (!items || items.length === 0) return 'No items'
 
@@ -177,15 +193,14 @@ export default function OrdersPage() {
       .map((item) => {
         const qty = item.quantity ?? 1
         const baseName =
-          item.name ||
-          (item.food_id ? `Item ${item.food_id}` :
-            item.side_id ? `Side ${item.side_id}` :
-            'Item')
+          item.foods?.name ||
+          item.sides?.name ||
+          'Item'
 
         const optionsNames =
           Array.isArray(item.options) && item.options.length
             ? ` (${item.options
-                .map((opt) => opt?.name)
+                .map((opt: any) => `${opt?.name} x${opt?.quantity || 1}`)
                 .filter(Boolean)
                 .join(', ')})`
             : ''
@@ -252,6 +267,8 @@ export default function OrdersPage() {
                 <th className="px-6 py-4">Order</th>
                 <th className="px-6 py-4">Customer</th>
                 <th className="px-6 py-4">Contact</th>
+                <th className="px-6 py-4">Location</th>
+                <th className="px-6 py-4">Method</th>
                 <th className="px-6 py-4">Items</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Total</th>
@@ -280,9 +297,6 @@ export default function OrdersPage() {
                       <div className="font-medium text-brand-charcoal">
                         {order.profiles?.full_name || 'Unknown customer'}
                       </div>
-                      <div className="text-gray-500 font-mono text-[11px]">
-                        {order.user_id.slice(0, 8)}...
-                      </div>
                     </td>
                     <td className="px-6 py-4 text-xs">
                       <div className="text-gray-900">
@@ -291,6 +305,34 @@ export default function OrdersPage() {
                       <div className="text-gray-500">
                         {order.profiles?.email || 'No email'}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 text-xs font-medium">
+                      <span className={`inline-flex items-center rounded-md px-2 py-1 ring-1 ring-inset ${
+                        order.location === 'Aurora' 
+                          ? 'bg-purple-50 text-purple-700 ring-purple-600/20' 
+                          : order.location === 'Chasemall'
+                          ? 'bg-blue-50 text-blue-700 ring-blue-600/20'
+                          : 'bg-gray-50 text-gray-600 ring-gray-500/10'
+                      }`}>
+                        {order.location || 'Unknown'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-xs font-medium">
+                      <span
+                        className={`inline-flex items-center rounded-md px-2 py-1 ring-1 ring-inset ${
+                          order.delivery_method === 'delivery'
+                            ? 'bg-green-50 text-green-700 ring-green-600/20'
+                            : order.delivery_method === 'pickup'
+                            ? 'bg-orange-50 text-orange-700 ring-orange-600/20'
+                            : 'bg-gray-50 text-gray-600 ring-gray-500/10'
+                        }`}
+                      >
+                        {order.delivery_method
+                          ? order.delivery_method === 'delivery'
+                            ? 'Delivery'
+                            : 'Pickup'
+                          : 'Unknown'}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-gray-700">
                       {getItemsSummary(order)}

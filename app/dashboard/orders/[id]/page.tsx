@@ -6,6 +6,17 @@ import { Order, OrderItem, OrderStatus } from '@/types'
 import { ArrowLeft, MapPin, Phone, User } from 'lucide-react'
 import Link from 'next/link'
 
+type DetailedOrderItem = OrderItem & {
+  foods?: {
+    name: string
+    image_url?: string
+  } | null
+  sides?: {
+    name: string
+    image_url?: string
+  } | null
+}
+
 type DetailedOrder = Order & {
   profiles?: {
     full_name?: string | null
@@ -17,7 +28,7 @@ type DetailedOrder = Order & {
 export default function OrderDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [order, setOrder] = useState<DetailedOrder | null>(null)
-  const [items, setItems] = useState<OrderItem[]>([])
+  const [items, setItems] = useState<DetailedOrderItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -40,25 +51,47 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
       // Fetch Profile for contact info
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('full_name, phone_number, email')
+        .select('full_name, phone, phone_number')
         .eq('id', orderData.user_id)
         .maybeSingle()
 
       setOrder({
         ...orderData,
-        profiles: profileData ?? null,
+        profiles: profileData ? {
+          full_name: profileData.full_name,
+          phone_number: profileData.phone_number || profileData.phone,
+          email: null
+        } : null,
       })
 
-      // Fetch Items with Food details
+      // Fetch Items with Food and Side details
       const { data: itemsData, error: itemsError } = await supabase
         .from('order_items')
-        .select('*, foods(*)')
+        .select('*, foods(*), sides(*)')
         .eq('order_id', id)
       
       if (itemsError) {
         console.error('Error fetching items:', itemsError)
+      }
+      
+      if (itemsData && itemsData.length > 0) {
+        setItems(itemsData)
+      } else if (orderData.items && Array.isArray(orderData.items)) {
+         // Fallback to JSONB items if order_items table is empty/unused
+         const jsonItems: DetailedOrderItem[] = orderData.items.map((item: any, idx: number) => ({
+             id: item.id || idx,
+             order_id: orderData.id,
+             food_id: item.food_id || 0,
+             quantity: item.quantity || 1,
+             price_at_time: item.price || 0,
+             options: item.options || [],
+             created_at: orderData.created_at,
+             foods: { name: item.name || 'Item', image_url: item.image_url },
+             sides: null
+         }))
+         setItems(jsonItems)
       } else {
-        setItems(itemsData || [])
+        setItems([])
       }
       
       setLoading(false)
@@ -77,6 +110,17 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
           <ArrowLeft className="h-6 w-6 text-gray-600" />
         </Link>
         <h1 className="text-2xl font-bold">Order #{order.id}</h1>
+        {order.delivery_method && (
+          <span
+            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+              order.delivery_method === 'delivery'
+                ? 'bg-green-100 text-green-800'
+                : 'bg-orange-100 text-orange-800'
+            }`}
+          >
+            {order.delivery_method === 'delivery' ? 'Delivery' : 'Pickup'}
+          </span>
+        )}
         <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
             order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
             order.status === 'delivered' ? 'bg-green-100 text-green-800' :
@@ -130,10 +174,6 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
                 <span className="font-medium">{order.profiles.email}</span>
               </div>
             )}
-            <div>
-              <span className="text-gray-500 block">User ID</span>
-              <span className="font-mono">{order.user_id}</span>
-            </div>
           </div>
         </div>
       </div>
@@ -146,16 +186,26 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
           {items.map((item) => (
             <div key={item.id} className="flex items-center justify-between p-6">
               <div className="flex items-start gap-4">
-                {item.foods?.image_url && (
-                  <img src={item.foods.image_url} alt={item.foods.name} className="h-16 w-16 rounded-md object-cover bg-gray-100" />
+                {(item.foods?.image_url || item.sides?.image_url) && (
+                  <img 
+                    src={item.foods?.image_url || item.sides?.image_url} 
+                    alt={item.foods?.name || item.sides?.name} 
+                    className="h-16 w-16 rounded-md object-cover bg-gray-100" 
+                  />
                 )}
                 <div>
-                  <h4 className="font-medium text-gray-900">{item.foods?.name || 'Unknown Item'}</h4>
+                  <h4 className="font-medium text-gray-900">
+                    {item.foods?.name || item.sides?.name || 'Unknown Item'}
+                  </h4>
                   <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
-                  {item.options && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      Options: {JSON.stringify(item.options)}
-                    </p>
+                  {Array.isArray(item.options) && item.options.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {item.options.map((opt: any, idx: number) => (
+                        <span key={idx} className="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">
+                          {opt.name} x{opt.quantity || 1}
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>

@@ -13,6 +13,7 @@ export default function PaymentsPage() {
   useEffect(() => {
     const fetchOrders = async () => {
       setLoading(true)
+
       const { data, error } = await supabase
         .from('orders')
         .select('*')
