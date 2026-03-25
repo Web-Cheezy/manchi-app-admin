@@ -99,6 +99,23 @@ Future<void> placeOrder() async {
 }
 ```
 
+### Transport fare lookup (by LGA)
+Before calculating your order total, your app should read the transport fare for the selected LGA from `transport_prices`.
+
+If the row doesn’t exist yet, default to `2500`.
+
+```dart
+final res = await supabase
+  .from('transport_prices')
+  .select('price')
+  .eq('lga', selectedLga)
+  .maybeSingle();
+
+final transportPrice = (res?['price'] as int?) ?? 2500;
+```
+
+Important: `selectedLga` must exactly match the LGA name stored in the table (use the strings from `assets/nigeria-state-and-lgas.json`).
+
 ## 3. Updating User Profile
 
 Users might want to update their phone number. The Admin Panel uses the `phone_number` field in the `profiles` table.

@@ -60,6 +60,14 @@ This document outlines the database structure for the Food App, hosted on Supaba
 - `side_id` (int8, FK -> sides.id): The associated side item.
 - `created_at` (timestamptz): Creation timestamp.
 
+### `transport_prices`
+*Stores the transport fare by LGA (used by the mobile app to calculate delivery/transport charges).*
+- `lga` (text, PK): LGA name (must match the LGA string your app uses).
+- `state` (text): Nigerian state the LGA belongs to (informational).
+- `price` (integer): Transport fare in Naira. Defaults to `2500`.
+- `created_at` (timestamptz): Creation timestamp.
+- `updated_at` (timestamptz): Last update timestamp.
+
 ## 2. Categorization Logic Explained
 
 ### A. Main Dish Categorization (Table-Based)

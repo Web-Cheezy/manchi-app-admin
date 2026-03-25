@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, ShoppingBag, UtensilsCrossed, CreditCard, LogOut, Users } from 'lucide-react'
+import { LayoutDashboard, ShoppingBag, UtensilsCrossed, CreditCard, LogOut, Users, Truck } from 'lucide-react'
 import { clsx } from 'clsx'
 import { supabase } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
@@ -11,6 +11,7 @@ import { Profile } from '@/types'
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Orders', href: '/dashboard/orders', icon: ShoppingBag },
+  { name: 'Transportation', href: '/dashboard/transportation', icon: Truck },
   { name: 'Menu', href: '/dashboard/menu', icon: UtensilsCrossed },
   { name: 'Payments', href: '/dashboard/payments', icon: CreditCard },
   { name: 'Team', href: '/dashboard/team', icon: Users },
