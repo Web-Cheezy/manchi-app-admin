@@ -1,4 +1,5 @@
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'delivering' | 'delivered' | 'cancelled'
+export type AvailabilityStatus = 'available' | 'out_of_stock' | 'unavailable'
 
 export interface Order {
   id: number
@@ -38,9 +39,18 @@ export interface Food {
   description?: string
   price: number
   image_url?: string
-  is_available: boolean
+  is_available: boolean // Deprecated in favor of food_availability table status
   created_at: string
-  categories?: any // Joined data (Category)
+  categories?: Category
+  food_availability?: FoodAvailability[]
+}
+
+export interface FoodAvailability {
+  id: number
+  food_id: number
+  location: 'Eromo' | 'Chasemall'
+  status: AvailabilityStatus
+  updated_at: string
 }
 
 export interface Side {
@@ -50,6 +60,15 @@ export interface Side {
   type?: string
   image_url?: string
   created_at: string
+  side_availability?: SideAvailability[]
+}
+
+export interface SideAvailability {
+  id: number
+  side_id: number
+  location: 'Eromo' | 'Chasemall'
+  status: AvailabilityStatus
+  updated_at: string
 }
 
 export interface Profile {
@@ -58,5 +77,5 @@ export interface Profile {
   phone_number?: string
   email?: string
   role?: 'super_admin' | 'admin' | 'customer'
-  location?: 'Chasemall' | 'Aurora' | 'All'
+  location?: 'Chasemall' | 'Eromo' | 'All'
 }

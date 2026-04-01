@@ -49,6 +49,16 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
     setLoading(false)
   }
 
+  const handleToggleGlobal = async (food: Food) => {
+    const { error } = await supabase
+      .from('foods')
+      .update({ is_available: !food.is_available })
+      .eq('id', food.id)
+    
+    if (error) alert('Error updating global availability')
+    else fetchData()
+  }
+
   const handleSave = async () => {
     if (!formData.name || !formData.price || !formData.category_id) {
         alert('Please fill required fields')
@@ -192,15 +202,6 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
     } else {
       fetchData()
     }
-  }
-
-  const toggleAvailability = async (id: number, current: boolean) => {
-      const { error } = await supabase
-        .from('foods')
-        .update({ is_available: !current })
-        .eq('id', id)
-    
-      if (!error) fetchData()
   }
 
   const filteredFoods = selectedCategoryId
@@ -373,12 +374,12 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
                   <td className="px-6 py-4">₦{Number(food.price).toFixed(2)}</td>
                   <td className="px-6 py-4">
                     <button 
-                        onClick={() => toggleAvailability(food.id, food.is_available)}
+                        onClick={() => handleToggleGlobal(food)}
                         className={`rounded-full px-2 py-1 text-xs font-medium ${
                             food.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                         }`}
                     >
-                        {food.is_available ? 'Yes' : 'No'}
+                        {food.is_available ? 'Active' : 'Hidden'}
                     </button>
                   </td>
                   <td className="px-6 py-4">

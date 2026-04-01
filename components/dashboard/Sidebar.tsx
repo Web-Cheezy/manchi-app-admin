@@ -13,6 +13,7 @@ const navigation = [
   { name: 'Orders', href: '/dashboard/orders', icon: ShoppingBag },
   { name: 'Transportation', href: '/dashboard/transportation', icon: Truck },
   { name: 'Menu', href: '/dashboard/menu', icon: UtensilsCrossed },
+  { name: 'Branch Menu', href: '/dashboard/branch-menu', icon: UtensilsCrossed },
   { name: 'Payments', href: '/dashboard/payments', icon: CreditCard },
   { name: 'Team', href: '/dashboard/team', icon: Users },
 ]
@@ -59,8 +60,13 @@ export function Sidebar() {
       </div>
       <nav className="flex-1 space-y-1 px-3 py-6">
         {navigation.map((item) => {
-          // Hide 'Menu' if not super_admin
+          // Hide 'Menu' (Global Management) if not super_admin
           if (item.name === 'Menu' && profile?.role !== 'super_admin') {
+            return null
+          }
+          // Hide 'Branch Menu' (Availability Toggling) if not an admin/super_admin
+          // Actually, super_admin should see it too as they manage "all malls"
+          if (item.name === 'Branch Menu' && !profile?.role?.includes('admin')) {
             return null
           }
           // Hide 'Team' if not super_admin

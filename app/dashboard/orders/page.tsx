@@ -308,7 +308,7 @@ export default function OrdersPage() {
                     </td>
                     <td className="px-6 py-4 text-xs font-medium">
                       <span className={`inline-flex items-center rounded-md px-2 py-1 ring-1 ring-inset ${
-                        order.location === 'Aurora' 
+                        order.location === 'Eromo' 
                           ? 'bg-purple-50 text-purple-700 ring-purple-600/20' 
                           : order.location === 'Chasemall'
                           ? 'bg-blue-50 text-blue-700 ring-blue-600/20'

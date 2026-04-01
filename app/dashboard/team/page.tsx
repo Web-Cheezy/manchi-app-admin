@@ -136,7 +136,7 @@ export default function TeamPage() {
                       disabled={profile.role === 'super_admin'}
                     >
                       <option value="Chasemall">Chasemall</option>
-                      <option value="Aurora">Aurora</option>
+                      <option value="Eromo">Eromo</option>
                       <option value="All">All Locations</option>
                     </select>
                   </td>

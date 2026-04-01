@@ -29,9 +29,9 @@ When you run this code in your Admin Panel:
 ```javascript
 const { data: orders } = await supabase.from('orders').select('*');
 ```
-*   **Super Admin** will get **100 orders** (Chasemall + Aurora).
+*   **Super Admin** will get **100 orders** (Chasemall + Eromo).
 *   **Chasemall Admin** will get **60 orders** (Only Chasemall).
-*   **Aurora Admin** will get **40 orders** (Only Aurora).
+*   **Eromo Admin** will get **40 orders** (Only Eromo).
 *   **Customer** will get **0 orders** (Access Denied).
 
 **You just fetch the data. The database ensures they only see what they are allowed to see.**
@@ -96,11 +96,11 @@ The RLS policies will likely block regular admins from inserting into `foods` or
 
 ## 4. Summary of Data Flow
 
-1.  **App** sends full address: `"Aurora Mall, No. 39..."`
+1.  **App** sends full address: `"Opposite Eromo Filling Station, New Road Eneka Atali Road Port Harcourt, Rivers State."`
 2.  **Backend** saves it as-is.
 3.  **Admin Panel** logs in user.
 4.  **Admin Panel** fetches `orders`.
-5.  **Supabase** checks: "Does `"Aurora Mall..."` match the admin's location `"Aurora"`? **YES**.
+5.  **Supabase** checks: "Does `"Opposite Eromo Filling Station..."` match the admin's location `"Eromo"`? **YES**.
 6.  **Admin Panel** displays the order.
 
-This ensures that your "Chasemall" admin will never accidentally see an "Aurora" order, and your "Super Admin" can oversee everything.
+This ensures that your "Chasemall" admin will never accidentally see an "Eromo" order, and your "Super Admin" can oversee everything.

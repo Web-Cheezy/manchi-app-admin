@@ -1,6 +1,6 @@
 # Flutter App Integration Guide
 
-This guide explains how your Flutter app should structure data when sending it to the Supabase backend to ensure compatibility with the Admin Panel.
+This guide explains how your Flutter app should fetch menu data and structure order data when talking to the Supabase backend so it stays compatible with the Admin Panel and branch-based availability.
 
 ## 1. Authentication
 
@@ -15,9 +15,103 @@ final response = await supabase.auth.signUp(
 );
 ```
 
-## 2. Creating an Order
+## 2. Fetching menu items by branch
 
-To ensure the Admin Panel displays orders correctly (including items and location), your Flutter app must insert data into the `orders` table with the following structure.
+The menu is now managed in **two layers**:
+
+1. `foods` and `sides`
+   - These are the global menu records created by the Super Admin.
+   - A food can also be globally hidden using `is_available = false`.
+
+2. `food_availability` and `side_availability`
+   - These store branch-specific availability for:
+     - `Eromo`
+     - `Chasemall`
+   - Status values:
+     - `available`
+     - `out_of_stock`
+     - `unavailable`
+
+### What the Flutter app should show
+
+For customer-facing menu screens, fetch only items that are:
+
+- globally active
+- in the user's selected branch
+- marked as `available`
+
+If an item is `out_of_stock` or `unavailable`, the customer should **not** be able to order it.
+
+### Fetch foods for a branch
+
+```dart
+Future<List<Map<String, dynamic>>> fetchFoodsForBranch(String branchLocation) async {
+  final res = await supabase
+      .from('foods')
+      .select('''
+        id,
+        name,
+        description,
+        price,
+        image_url,
+        category_id,
+        is_available,
+        categories(name),
+        food_availability!inner(location, status)
+      ''')
+      .eq('is_available', true)
+      .eq('food_availability.location', branchLocation)
+      .eq('food_availability.status', 'available')
+      .order('name');
+
+  return List<Map<String, dynamic>>.from(res);
+}
+```
+
+### Fetch sides for a branch
+
+```dart
+Future<List<Map<String, dynamic>>> fetchSidesForBranch(String branchLocation) async {
+  final res = await supabase
+      .from('sides')
+      .select('''
+        id,
+        name,
+        price,
+        type,
+        image_url,
+        side_availability!inner(location, status)
+      ''')
+      .eq('side_availability.location', branchLocation)
+      .eq('side_availability.status', 'available')
+      .order('name');
+
+  return List<Map<String, dynamic>>.from(res);
+}
+```
+
+### Important menu rule
+
+Your Flutter app should treat the branch selected by the user as the source of truth.
+
+Example:
+
+- If user selected `Eromo`, only query menu availability for `Eromo`
+- If user selected `Chasemall`, only query menu availability for `Chasemall`
+
+### Optional but strongly recommended
+
+Before final checkout, re-check the selected foods and sides against availability again.
+
+This helps prevent stale-cart issues such as:
+
+- item was available when user opened menu
+- admin later changed it to `out_of_stock`
+- user tries to place order with old cart data
+
+## 3. Creating an Order
+
+To ensure the Admin Panel displays orders correctly, your Flutter app must insert data into the `orders` table with the following structure.
 
 ### Required Fields
 
@@ -27,7 +121,7 @@ To ensure the Admin Panel displays orders correctly (including items and locatio
 | `status` | Text | Initial status: `'pending'`. |
 | `total_amount` | Number | The final price of the order. |
 | `delivery_address` | Text | Full address string. |
-| `location` | Text | **CRITICAL**: Must be either `'Aurora'` or `'Chasemall'`. determine this based on user selection or address logic. |
+| `location` | Text | **CRITICAL**: Must be either `'Eromo'` or `'Chasemall'`. Determine this from the branch the user selected. |
 | `items` | JSON | **CRITICAL**: A JSON array of the order contents. |
 
 ### The `items` JSON Structure
@@ -82,7 +176,7 @@ Future<void> placeOrder() async {
 
   // 2. Determine Location (Logic depends on your app)
   // Example: If user selected a specific branch or based on address
-  final String branchLocation = 'Chasemall'; // or 'Aurora'
+  final String branchLocation = 'Chasemall'; // or 'Eromo'
 
   // 3. Send to Supabase
   await supabase.from('orders').insert({
@@ -98,6 +192,35 @@ Future<void> placeOrder() async {
   });
 }
 ```
+
+### Order validation rule
+
+The `location` sent in the order must match the branch the customer was browsing.
+
+Example:
+
+- customer browses `Eromo`
+- cart was built from `Eromo` menu data
+- order must be saved with `location: 'Eromo'`
+
+Do **not** let the app fetch menu items from one branch and submit the order under another branch.
+
+### Branch address mapping
+
+Use the branch code in the database, but show the matching human-readable address in the app.
+
+```dart
+const branchAddresses = {
+  'Chasemall': 'Chasemall, Port Harcourt, Rivers State.',
+  'Eromo': 'Opposite Eromo Filling Station, New Road Eneka Atali Road Port Harcourt, Rivers State.',
+};
+```
+
+Important:
+
+- save `location` as `Eromo` in the database, not `Aurora`
+- if your app still has an old `Aurora` value anywhere, replace it with `Eromo`
+- use the full Eromo address only for display, delivery context, or branch selection UI
 
 ### Transport fare lookup (by LGA)
 Before calculating your order total, your app should read the transport fare for the selected LGA from `transport_prices`.
@@ -116,7 +239,7 @@ final transportPrice = (res?['price'] as int?) ?? 2500;
 
 Important: `selectedLga` must exactly match the LGA name stored in the table (use the strings from `assets/nigeria-state-and-lgas.json`).
 
-## 3. Updating User Profile
+## 4. Updating User Profile
 
 Users might want to update their phone number. The Admin Panel uses the `phone_number` field in the `profiles` table.
 
@@ -131,8 +254,12 @@ Future<void> updateProfile(String phone) async {
 }
 ```
 
-## 4. Key Takeaways
+## 5. Key Takeaways
 
-1.  **Always send `location`**: If you send `null`, the location-specific admins (e.g., Aurora Admin) will **NOT** see the order. Only Super Admins will see it.
-2.  **Use the `items` JSON column**: Do not rely on the `order_items` table for the main display. The Admin Panel reads the JSON blob for speed and simplicity.
-3.  **Status Values**: Use lowercase: `'pending'`, `'confirmed'`, `'preparing'`, `'delivering'`, `'delivered'`, `'cancelled'`.
+1.  **Fetch menu by branch**: Always query foods and sides with the selected branch location.
+2.  **Show only available items**: For customers, only show items where branch status is `available`.
+3.  **Block unavailable items**: `out_of_stock` and `unavailable` must not be orderable.
+4.  **Respect global menu state**: Foods with `is_available = false` should not be shown even if branch availability exists.
+5.  **Always send `location` on orders**: If you send `null`, branch admins may not see the order correctly.
+6.  **Use the `items` JSON column**: The Admin Panel reads the `items` JSON directly.
+7.  **Status Values**: Order statuses must remain lowercase: `'pending'`, `'confirmed'`, `'preparing'`, `'delivering'`, `'delivered'`, `'cancelled'`.

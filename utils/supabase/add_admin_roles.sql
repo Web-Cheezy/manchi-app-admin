@@ -1,7 +1,7 @@
 -- Add role and location columns to profiles table
 ALTER TABLE profiles 
 ADD COLUMN IF NOT EXISTS role text DEFAULT 'admin' CHECK (role IN ('super_admin', 'admin')),
-ADD COLUMN IF NOT EXISTS location text DEFAULT 'Chasemall' CHECK (location IN ('Chasemall', 'Aurora', 'All'));
+ADD COLUMN IF NOT EXISTS location text DEFAULT 'Chasemall' CHECK (location IN ('Chasemall', 'Eromo', 'All'));
 
 -- Update existing profiles to be super_admin for now (so you don't get locked out)
 -- You can manually change specific users to 'admin' and specific locations later
