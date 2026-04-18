@@ -54,9 +54,22 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+
+  try {
+    const { data, error } = await supabase.auth.getUser()
+
+    // Stale browser cookies can trigger refresh_token_not_found; treat as logged out.
+    if (error && error.code !== 'refresh_token_not_found') {
+      console.error('Supabase auth error in proxy:', error)
+    }
+
+    user = data.user
+  } catch (error: any) {
+    if (error?.code !== 'refresh_token_not_found') {
+      console.error('Unexpected auth error in proxy:', error)
+    }
+  }
 
   // Protect dashboard routes
   if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
