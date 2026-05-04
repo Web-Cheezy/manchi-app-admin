@@ -7,20 +7,30 @@ import { AvailabilityStatus, Profile } from '@/types'
 import { Loader2, ChevronLeft, CheckCircle2, Archive, XCircle, Image as ImageIcon } from 'lucide-react'
 import { clsx } from 'clsx'
 
+type Location = 'Eromo' | 'Chasemall'
+type AvailabilityRow = { location: Location; status: AvailabilityStatus }
+type ItemWithAvailability = {
+  id: number
+  name: string
+  image_url?: string | null
+  food_availability?: AvailabilityRow[]
+  side_availability?: AvailabilityRow[]
+}
+
 export default function AvailabilityUpdatePage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
   const type = params.type as 'food' | 'side'
   const id = params.id as string
-  const urlLocation = searchParams.get('location') as 'Eromo' | 'Chasemall' | null
+  const urlLocation = searchParams.get('location') as Location | null
   
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
-  const [item, setItem] = useState<any>(null)
+  const [item, setItem] = useState<ItemWithAvailability | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [currentStatus, setCurrentStatus] = useState<AvailabilityStatus>('available')
-  const [activeLocation, setActiveLocation] = useState<'Eromo' | 'Chasemall' | null>(null)
+  const [activeLocation, setActiveLocation] = useState<Location | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -42,7 +52,10 @@ export default function AvailabilityUpdatePage() {
 
       // Determine which location we are managing
       // Super admins use the location from URL, admins use their assigned location
-      const location = profileData.role === 'super_admin' ? urlLocation || 'Eromo' : profileData.location as any
+      const location =
+        profileData.role === 'super_admin'
+          ? urlLocation || 'Eromo'
+          : (profileData.location as Location)
       setActiveLocation(location)
 
       // 2. Get Item Details
@@ -56,8 +69,10 @@ export default function AvailabilityUpdatePage() {
         .single()
 
       if (itemData) {
-        setItem(itemData)
-        const availability = itemData[availabilityTable]?.find((a: any) => a.location === location)
+        setItem(itemData as ItemWithAvailability)
+        const availability = (itemData as any)[availabilityTable]?.find(
+          (a: AvailabilityRow) => a.location === location
+        )
         if (availability) {
           setCurrentStatus(availability.status)
         }
@@ -195,7 +210,15 @@ function StatusOption({
   onClick, 
   color,
   disabled 
-}: any) {
+}: {
+  label: string
+  description: string
+  icon: React.ElementType
+  active: boolean
+  onClick: () => void
+  color: 'green' | 'gray' | 'red'
+  disabled: boolean
+}) {
   const palette = {
     green: {
       activeBg: '#388E3C',

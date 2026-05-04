@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/utils/supabase/client'
 import { Food, Side, Profile, AvailabilityStatus } from '@/types'
-import { Loader2, Archive, XCircle, AlertCircle, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { Loader2, ChevronRight } from 'lucide-react'
 import { clsx } from 'clsx'
 import Link from 'next/link'
+import Image from 'next/image'
 
 type Location = 'Eromo' | 'Chasemall'
 
@@ -30,8 +31,9 @@ export default function BranchMenuPage() {
         
         if (profile) {
           setProfile(profile)
-          const initialLocation = profile.role === 'super_admin' ? 'Eromo' : profile.location as Location
+          const initialLocation = profile.role === 'super_admin' ? 'Eromo' : (profile.location as Location)
           setSelectedLocation(initialLocation)
+          return
         }
       }
       setLoading(false)
@@ -40,28 +42,28 @@ export default function BranchMenuPage() {
   }, [])
 
   useEffect(() => {
-    if (selectedLocation) {
-      fetchData()
-    }
-  }, [selectedLocation])
-
-  const fetchData = async () => {
     if (!selectedLocation) return
-    const [foodsRes, sidesRes] = await Promise.all([
-      supabase
-        .from('foods')
-        .select('*, categories(name), food_availability(*)')
-        .order('name'),
-      supabase
-        .from('sides')
-        .select('*, side_availability(*)')
-        .order('name')
-    ])
 
-    if (foodsRes.data) setFoods(foodsRes.data)
-    if (sidesRes.data) setSides(sidesRes.data)
-    setLoading(false)
-  }
+    const run = async () => {
+      setLoading(true)
+      const [foodsRes, sidesRes] = await Promise.all([
+        supabase
+          .from('foods')
+          .select('*, categories(name), food_availability(*)')
+          .order('name'),
+        supabase
+          .from('sides')
+          .select('*, side_availability(*)')
+          .order('name')
+      ])
+
+      if (foodsRes.data) setFoods(foodsRes.data)
+      if (sidesRes.data) setSides(sidesRes.data)
+      setLoading(false)
+    }
+
+    run()
+  }, [selectedLocation])
 
   if (loading && !foods.length) {
     return (
@@ -183,9 +185,16 @@ function ItemRow({
       href={`/dashboard/branch-menu/${type}/${id}?location=${location}`}
       className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-4 hover:border-brand-red/30 transition-all shadow-sm group"
     >
-      <div className="h-16 w-16 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden relative">
+      <div className="h-16 w-16 rounded-xl bg-gray-100 shrink-0 overflow-hidden relative">
         {image ? (
-          <img src={image} alt={name} className="absolute inset-0 w-full h-full object-cover" />
+          <Image
+            src={image}
+            alt={name}
+            fill
+            sizes="64px"
+            className="object-cover"
+            unoptimized
+          />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-gray-300">
             -
