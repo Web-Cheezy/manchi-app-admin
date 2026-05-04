@@ -92,20 +92,57 @@ export default function OrdersPage() {
 
   const updateStatus = async (id: number, status: OrderStatus) => {
     try {
-      const res = await fetch(`/api/admin/orders/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status }),
-      })
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BACKEND_API_URL ||
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        ''
 
-      if (!res.ok) {
-        console.error('Error updating status via backend API:', await res.text())
-        alert('Error updating status')
+      if (!baseUrl) {
+        alert('Backend API URL is not configured.')
         return
       }
 
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      const accessToken = session?.access_token
+      if (!accessToken) {
+        alert('You are not authenticated. Please sign in again.')
+        return
+      }
+
+      const res = await fetch(
+        `${baseUrl.replace(/\/$/, '')}/api/orders/${id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ status }),
+        }
+      )
+
+      const text = await res.text()
+      const parsed = (() => {
+        try {
+          return text ? JSON.parse(text) : null
+        } catch {
+          return null
+        }
+      })()
+
+      if (!res.ok) {
+        console.error(
+          'Error updating status via backend API:',
+          parsed ?? text
+        )
+        alert(parsed?.error || 'Error updating status')
+        return
+      }
+
+      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)))
       await fetchOrders()
     } catch (err) {
       console.error('Error updating status via backend API:', err)
