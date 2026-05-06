@@ -130,7 +130,7 @@ export default function AvailabilityUpdatePage() {
       <div className="overflow-hidden rounded-[2.5rem] border border-brand-red/10 bg-white shadow-2xl shadow-brand-charcoal/10">
         <div className="border-b border-brand-red/10 bg-brand-beige/40 p-8">
           <div className="flex items-center gap-6">
-            <div className="h-24 w-24 rounded-[2rem] bg-white shadow-inner overflow-hidden flex-shrink-0 border-4 border-white ring-1 ring-brand-red/10">
+            <div className="h-24 w-24 rounded-4xl bg-white shadow-inner overflow-hidden shrink-0 border-4 border-white ring-1 ring-brand-red/10">
               {item?.image_url ? (
                 <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
               ) : (
@@ -269,7 +269,7 @@ function StatusOption({
     >
       <div
         style={iconStyle}
-        className="flex-shrink-0 rounded-xl p-3 shadow-sm transition-colors"
+        className="shrink-0 rounded-xl p-3 shadow-sm transition-colors"
       >
         <Icon className="h-6 w-6" />
       </div>

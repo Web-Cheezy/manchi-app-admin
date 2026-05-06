@@ -92,16 +92,6 @@ export default function OrdersPage() {
 
   const updateStatus = async (id: number, status: OrderStatus) => {
     try {
-      const baseUrl =
-        process.env.NEXT_PUBLIC_BACKEND_API_URL ||
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
-        ''
-
-      if (!baseUrl) {
-        alert('Backend API URL is not configured.')
-        return
-      }
-
       const {
         data: { session },
       } = await supabase.auth.getSession()
@@ -113,7 +103,7 @@ export default function OrdersPage() {
       }
 
       const res = await fetch(
-        `${baseUrl.replace(/\/$/, '')}/api/orders/${id}`,
+        `/api/orders/${id}`,
         {
           method: 'PATCH',
           headers: {
