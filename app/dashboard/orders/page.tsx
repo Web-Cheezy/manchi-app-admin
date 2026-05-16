@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/utils/supabase/client'
-import { Order, OrderStatus } from '@/types'
+import { Order, OrderStatus, Profile } from '@/types'
 import Link from 'next/link'
 
 type OrderOption = {
@@ -32,18 +32,54 @@ export default function OrdersPage() {
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all')
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'yesterday' | 'last_7_days' | 'this_week' | 'custom'>('all')
   const [customDate, setCustomDate] = useState<string>('')
+  const [adminProfile, setAdminProfile] = useState<Pick<Profile, 'id' | 'role' | 'location'> | null>(null)
 
   useEffect(() => {
     fetchOrders()
   }, [])
 
-  const fetchOrders = async () => {
+  async function fetchOrders() {
     setLoading(true)
 
-    const { data, error } = await supabase
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    const userId = session?.user?.id
+
+    let currentAdmin: Pick<Profile, 'id' | 'role' | 'location'> | null = null
+    if (userId) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('id, role, location')
+        .eq('id', userId)
+        .maybeSingle()
+
+      if (profileData) {
+        currentAdmin = {
+          id: profileData.id,
+          role: profileData.role,
+          location: profileData.location,
+        }
+      }
+    }
+
+    setAdminProfile(currentAdmin)
+
+    let query = supabase
       .from('orders')
-      .select('*') // Ensure we get the 'items' JSONB column
+      .select('*')
       .order('created_at', { ascending: false })
+
+    if (
+      currentAdmin?.role === 'admin' &&
+      currentAdmin.location &&
+      currentAdmin.location !== 'All'
+    ) {
+      query = query.eq('location', currentAdmin.location)
+    }
+
+    const { data, error } = await query
     
     if (error) {
       console.error('Error fetching orders:', error)

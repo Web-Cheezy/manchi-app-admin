@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react'
 import { supabase } from '@/utils/supabase/client'
-import { Order, OrderItem, OrderStatus } from '@/types'
+import { Order, OrderItem, Profile } from '@/types'
 import { ArrowLeft, MapPin, Phone, User } from 'lucide-react'
 import Link from 'next/link'
 
@@ -30,10 +30,33 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
   const [order, setOrder] = useState<DetailedOrder | null>(null)
   const [items, setItems] = useState<DetailedOrderItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [accessDenied, setAccessDenied] = useState(false)
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
       setLoading(true)
+      setAccessDenied(false)
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      const userId = session?.user?.id
+      let currentAdmin: Pick<Profile, 'role' | 'location'> | null = null
+      if (userId) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role, location')
+          .eq('id', userId)
+          .maybeSingle()
+
+        if (profileData) {
+          currentAdmin = {
+            role: profileData.role,
+            location: profileData.location,
+          }
+        }
+      }
       
       // Fetch Order
       const { data: orderData, error: orderError } = await supabase
@@ -44,6 +67,17 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
       
       if (orderError || !orderData) {
         console.error('Error fetching order:', orderError)
+        setLoading(false)
+        return
+      }
+
+      if (
+        currentAdmin?.role === 'admin' &&
+        currentAdmin.location &&
+        currentAdmin.location !== 'All' &&
+        orderData.location !== currentAdmin.location
+      ) {
+        setAccessDenied(true)
         setLoading(false)
         return
       }
@@ -101,6 +135,24 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
   }, [id])
 
   if (loading) return <div className="p-8 text-center">Loading details...</div>
+  if (accessDenied) {
+    return (
+      <div className="p-8 text-center space-y-3">
+        <div className="text-lg font-semibold text-brand-charcoal">Access denied</div>
+        <div className="text-sm text-gray-500">
+          You can only view orders from your location.
+        </div>
+        <div>
+          <Link
+            href="/dashboard/orders"
+            className="inline-flex items-center rounded-lg bg-brand-charcoal px-4 py-2 text-sm font-semibold text-white hover:bg-black"
+          >
+            Back to Orders
+          </Link>
+        </div>
+      </div>
+    )
+  }
   if (!order) return <div className="p-8 text-center">Order not found</div>
 
   return (
