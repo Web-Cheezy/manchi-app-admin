@@ -91,11 +91,11 @@ export default function TeamPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-lg overflow-hidden">
-        <table className="w-full text-sm text-left">
+      <div className="rounded-2xl border border-gray-100 bg-white shadow-lg overflow-x-auto">
+        <table className="min-w-[700px] w-full text-sm text-left">
           <thead className="bg-gray-50/30 text-gray-500 font-medium border-b border-gray-100">
             <tr>
-              <th className="px-6 py-4">Name / Email</th>
+              <th className="px-6 py-4">Name</th>
               <th className="px-6 py-4">Role</th>
               <th className="px-6 py-4">Location</th>
               <th className="px-6 py-4 text-right">Actions</th>
@@ -112,9 +112,8 @@ export default function TeamPage() {
               profiles.map((profile) => (
                 <tr key={profile.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-6 py-4">
-                    <div className="font-medium text-brand-charcoal">{profile.full_name || 'No Name'}</div>
-                    <div className="text-xs text-gray-500 font-mono">
-                      {profile.email || profile.id}
+                    <div className="font-medium text-brand-charcoal">
+                      {profile.full_name?.trim() || 'No name'}
                     </div>
                   </td>
                   <td className="px-6 py-4">

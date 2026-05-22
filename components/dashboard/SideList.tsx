@@ -207,8 +207,8 @@ export function SideList() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-lg overflow-hidden">
-        <table className="w-full text-sm text-left">
+      <div className="rounded-2xl border border-gray-100 bg-white shadow-lg overflow-x-auto">
+        <table className="min-w-[700px] w-full text-sm text-left">
           <thead className="bg-gray-50/50 text-gray-500 font-bold uppercase tracking-wider text-xs border-b border-gray-100">
             <tr>
               <th className="px-6 py-4">Image</th>

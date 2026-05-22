@@ -3,116 +3,104 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/utils/supabase/client'
 import { Order } from '@/types'
-import { Package, Clock, CheckCircle, Banknote } from 'lucide-react'
-import { StatsCard } from '@/components/dashboard/StatsCard'
+import { Banknote, CheckCircle, Clock, Package } from 'lucide-react'
+import { Page } from '@/components/admin/Page'
+import { StatCard } from '@/components/admin/StatCard'
+import { Card, CardBody, CardHeader } from '@/components/admin/ui/Card'
+import { OrderStatusBadge } from '@/components/admin/ui/Badge'
+import Link from 'next/link'
 
 export default function DashboardPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchOrders = async () => {
+    ;(async () => {
       const { data, error } = await supabase
         .from('orders')
         .select('*')
         .order('created_at', { ascending: false })
-      
-      if (error) {
-        console.error('Error fetching orders:', error)
-      } else {
-        setOrders(data || [])
-      }
-      setLoading(false)
-    }
 
-    fetchOrders()
+      if (!error) setOrders(data || [])
+      setLoading(false)
+    })()
   }, [])
 
-  const totalRevenue = orders.reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0)
-  const pendingOrders = orders.filter(o => o.status === 'pending').length
-  const completedOrders = orders.filter(o => o.status === 'delivered').length
+  const totalRevenue = orders.reduce(
+    (sum, o) => sum + (Number(o.total_amount) || 0),
+    0
+  )
+  const pending = orders.filter((o) => o.status === 'pending').length
+  const delivered = orders.filter((o) => o.status === 'delivered').length
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-brand-charcoal">Dashboard Overview</h2>
-        <p className="text-gray-500 mt-2">Welcome back to your control panel.</p>
-      </div>
-      
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard 
-          title="Total Revenue" 
-          value={`₦${totalRevenue.toFixed(2)}`} 
-          icon={Banknote} 
-          color="text-brand-green" 
+    <Page>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Revenue"
+          value={`₦${totalRevenue.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`}
+          icon={Banknote}
+          tone="green"
         />
-        <StatsCard 
-          title="Total Orders" 
-          value={orders.length} 
-          icon={Package} 
-          color="text-brand-red" 
-        />
-        <StatsCard 
-          title="Pending Orders" 
-          value={pendingOrders} 
-          icon={Clock} 
-          color="text-brand-yellow" 
-        />
-        <StatsCard 
-          title="Completed Orders" 
-          value={completedOrders} 
-          icon={CheckCircle} 
-          color="text-brand-charcoal" 
-        />
+        <StatCard label="Orders" value={orders.length} icon={Package} />
+        <StatCard label="Pending" value={pending} icon={Clock} tone="amber" />
+        <StatCard label="Delivered" value={delivered} icon={CheckCircle} tone="green" />
       </div>
 
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-lg overflow-hidden">
-        <div className="border-b border-gray-100 bg-gray-50/50 p-6">
-          <h3 className="text-lg font-bold text-brand-charcoal">Recent Orders</h3>
-        </div>
-        <div className="p-0">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <h2 className="text-sm font-semibold text-zinc-900">Recent orders</h2>
+          <Link
+            href="/dashboard/orders"
+            className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
+          >
+            View all →
+          </Link>
+        </CardHeader>
+        <CardBody className="p-0">
           {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading orders...</div>
+            <p className="px-6 py-10 text-center text-sm text-zinc-500">Loading…</p>
           ) : orders.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">No orders found.</div>
+            <p className="px-6 py-10 text-center text-sm text-zinc-500">No orders yet.</p>
           ) : (
-            <div className="relative w-full overflow-auto">
-              <table className="w-full caption-bottom text-sm">
-                <thead className="bg-gray-50/30">
-                  <tr className="border-b border-gray-100 transition-colors">
-                    <th className="h-12 px-6 text-left align-middle font-medium text-gray-500">Order ID</th>
-                    <th className="h-12 px-6 text-left align-middle font-medium text-gray-500">Status</th>
-                    <th className="h-12 px-6 text-left align-middle font-medium text-gray-500">Amount</th>
-                    <th className="h-12 px-6 text-left align-middle font-medium text-gray-500">Date</th>
+            <div className="admin-scroll overflow-x-auto">
+              <table className="w-full min-w-[520px] text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-100 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    <th className="px-6 py-3">Order</th>
+                    <th className="px-6 py-3">Status</th>
+                    <th className="px-6 py-3">Amount</th>
+                    <th className="px-6 py-3">Date</th>
                   </tr>
                 </thead>
-                <tbody className="[&_tr:last-child]:border-0">
-                  {orders.slice(0, 5).map((order) => (
-                    <tr key={order.id} className="border-b border-gray-100 transition-colors hover:bg-gray-50">
-                      <td className="p-4 align-middle font-medium">#{order.id}</td>
-                      <td className="p-4 align-middle">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                          order.status === 'preparing' ? 'bg-purple-100 text-purple-800' :
-                          order.status === 'delivering' ? 'bg-indigo-100 text-indigo-800' :
-                          order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                          order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                          'bg-blue-100 text-blue-800'
-                        }`}>
-                          {order.status}
-                        </span>
+                <tbody className="divide-y divide-zinc-50">
+                  {orders.slice(0, 8).map((order) => (
+                    <tr key={order.id} className="hover:bg-zinc-50/80">
+                      <td className="px-6 py-3.5 font-medium text-zinc-900">
+                        <Link
+                          href={`/dashboard/orders/${order.id}`}
+                          className="hover:underline"
+                        >
+                          #{order.id}
+                        </Link>
                       </td>
-                      <td className="p-4 align-middle">₦{Number(order.total_amount).toFixed(2)}</td>
-                      <td className="p-4 align-middle">{new Date(order.created_at).toLocaleDateString()}</td>
+                      <td className="px-6 py-3.5">
+                        <OrderStatusBadge status={order.status} />
+                      </td>
+                      <td className="px-6 py-3.5 tabular-nums text-zinc-700">
+                        ₦{Number(order.total_amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-6 py-3.5 text-zinc-500">
+                        {new Date(order.created_at).toLocaleDateString()}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-        </div>
-      </div>
-    </div>
+        </CardBody>
+      </Card>
+    </Page>
   )
 }

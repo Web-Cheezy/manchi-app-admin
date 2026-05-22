@@ -16,7 +16,7 @@ export function CategoryList({ onSelect }: { onSelect?: (category: Category) => 
     fetchCategories()
   }, [])
 
-  const fetchCategories = async () => {
+  async function fetchCategories() {
     setLoading(true)
     const { data, error } = await supabase
       .from('categories')
@@ -64,16 +64,72 @@ export function CategoryList({ onSelect }: { onSelect?: (category: Category) => 
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure? This will delete the category and ALL linked foods!')) return
 
-    // Delete associated foods first
-    const { error: foodError } = await supabase
+    const { data: foods, error: foodsError } = await supabase
       .from('foods')
-      .delete()
+      .select('id')
       .eq('category_id', id)
 
-    if (foodError) {
-      console.error('Error deleting foods:', foodError)
-      alert('Error deleting associated foods')
+    if (foodsError) {
+      alert('Error loading foods for this category')
       return
+    }
+
+    const foodIds = (foods || []).map((f) => f.id).filter(Boolean)
+
+    if (foodIds.length > 0) {
+      const { count, error: orderItemsError } = await supabase
+        .from('order_items')
+        .select('id', { count: 'exact', head: true })
+        .in('food_id', foodIds)
+
+      if (orderItemsError) {
+        console.error('Error checking order items:', orderItemsError)
+        alert('Error checking order history for this category')
+        return
+      }
+
+      if ((count || 0) > 0) {
+        const hide = confirm(
+          'Some foods in this category are already used in customer orders, so they cannot be deleted.\n\nDo you want to hide all foods in this category instead?'
+        )
+
+        if (hide) {
+          const { error: hideError } = await supabase
+            .from('foods')
+            .update({ is_available: false })
+            .eq('category_id', id)
+
+          if (hideError) {
+            alert('Error hiding foods')
+          } else {
+            alert('Foods hidden successfully.')
+          }
+        }
+
+        return
+      }
+
+      const { error: availabilityError } = await supabase
+        .from('food_availability')
+        .delete()
+        .in('food_id', foodIds)
+
+      if (availabilityError) {
+        console.error('Error deleting food availability:', availabilityError)
+        alert('Error deleting associated food availability')
+        return
+      }
+
+      const { error: foodError } = await supabase
+        .from('foods')
+        .delete()
+        .in('id', foodIds)
+
+      if (foodError) {
+        console.error('Error deleting foods:', foodError)
+        alert('Error deleting associated foods')
+        return
+      }
     }
 
     const { error } = await supabase

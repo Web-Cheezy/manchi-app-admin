@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/utils/supabase/client'
 import { Order, OrderStatus, Profile } from '@/types'
 import Link from 'next/link'
+import { Page, PageHeader } from '@/components/admin/Page'
+import { Card, CardBody } from '@/components/admin/ui/Card'
+import { Select, Input } from '@/components/admin/ui/Field'
 
 type OrderOption = {
   id?: number
@@ -274,12 +277,14 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight text-brand-charcoal">Orders</h2>
-        <div className="flex flex-wrap gap-2">
-          <select 
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all shadow-sm bg-white"
+    <Page>
+      <PageHeader
+        title="Orders"
+        description="Filter, update status, and open order details."
+        actions={
+          <>
+          <Select
+            className="w-full sm:w-auto"
             value={filter}
             onChange={(e) => setFilter(e.target.value as any)}
           >
@@ -290,10 +295,10 @@ export default function OrdersPage() {
             <option value="delivering">Delivering</option>
             <option value="delivered">Delivered</option>
             <option value="cancelled">Cancelled</option>
-          </select>
+          </Select>
 
-          <select
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all shadow-sm bg-white"
+          <Select
+            className="w-full sm:w-auto"
             value={dateFilter}
             onChange={(e) => {
               const value = e.target.value as typeof dateFilter
@@ -309,23 +314,25 @@ export default function OrdersPage() {
             <option value="this_week">This Week</option>
             <option value="last_7_days">Last 7 Days</option>
             <option value="custom">Specific Day</option>
-          </select>
+          </Select>
 
           {dateFilter === 'custom' && (
-            <input
+            <Input
               type="date"
-              className="rounded-xl border border-gray-200 px-4 py-2 text-sm focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all shadow-sm bg-white"
+              className="w-full sm:w-auto"
               value={customDate}
               onChange={(e) => setCustomDate(e.target.value)}
             />
           )}
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50/50 text-gray-500 font-bold uppercase tracking-wider text-xs border-b border-gray-100">
+      <Card>
+        <CardBody className="p-0">
+          <div className="admin-scroll overflow-x-auto">
+          <table className="min-w-[960px] w-full text-sm text-left">
+            <thead className="border-b border-zinc-100 bg-zinc-50/80 text-xs font-medium uppercase tracking-wide text-zinc-500">
               <tr>
                 <th className="px-6 py-4">Order</th>
                 <th className="px-6 py-4">Customer</th>
@@ -339,20 +346,20 @@ export default function OrdersPage() {
                 <th className="px-6 py-4">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-zinc-50">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">Loading...</td>
+                  <td colSpan={10} className="px-6 py-10 text-center text-sm text-zinc-500">Loading…</td>
                 </tr>
               ) : filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">No orders found.</td>
+                  <td colSpan={10} className="px-6 py-10 text-center text-sm text-zinc-500">No orders found.</td>
                 </tr>
               ) : (
                 filteredOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50/50">
-                    <td className="px-6 py-4 font-medium">
-                      <Link href={`/dashboard/orders/${order.id}`} className="text-blue-600 hover:underline">
+                  <tr key={order.id} className="hover:bg-zinc-50/80">
+                    <td className="px-6 py-3.5 font-medium">
+                      <Link href={`/dashboard/orders/${order.id}`} className="text-zinc-900 hover:underline">
                         #{order.id}
                       </Link>
                     </td>
@@ -401,17 +408,10 @@ export default function OrdersPage() {
                       {getItemsSummary(order)}
                     </td>
                     <td className="px-6 py-4">
-                      <select
+                      <Select
                         value={order.status}
                         onChange={(e) => updateStatus(order.id, e.target.value as OrderStatus)}
-                        className={`rounded-full px-2 py-1 text-xs font-medium border-none focus:ring-2 focus:ring-offset-1 ${
-                          order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                          order.status === 'preparing' ? 'bg-purple-100 text-purple-800' :
-                          order.status === 'delivering' ? 'bg-indigo-100 text-indigo-800' :
-                          order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                          'bg-red-100 text-red-800'
-                        }`}
+                        className="h-8 min-w-[7.5rem] text-xs"
                       >
                         <option value="pending">Pending</option>
                         <option value="confirmed">Confirmed</option>
@@ -419,14 +419,14 @@ export default function OrdersPage() {
                         <option value="delivering">Delivering</option>
                         <option value="delivered">Delivered</option>
                         <option value="cancelled">Cancelled</option>
-                      </select>
+                      </Select>
                     </td>
-                    <td className="px-6 py-4">₦{Number(order.total_amount).toFixed(2)}</td>
-                    <td className="px-6 py-4 text-gray-500">
+                    <td className="px-6 py-3.5 tabular-nums">₦{Number(order.total_amount).toFixed(2)}</td>
+                    <td className="px-6 py-3.5 text-zinc-500">
                       {new Date(order.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4">
-                      <Link href={`/dashboard/orders/${order.id}`} className="text-gray-600 hover:text-black font-medium">
+                    <td className="px-6 py-3.5">
+                      <Link href={`/dashboard/orders/${order.id}`} className="text-sm font-medium text-zinc-600 hover:text-zinc-900">
                         View
                       </Link>
                     </td>
@@ -435,8 +435,9 @@ export default function OrdersPage() {
               )}
             </tbody>
           </table>
-        </div>
-      </div>
-    </div>
+          </div>
+        </CardBody>
+      </Card>
+    </Page>
   )
 }

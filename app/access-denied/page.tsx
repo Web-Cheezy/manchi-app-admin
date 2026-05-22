@@ -1,23 +1,21 @@
-'use client'
-
 import Link from 'next/link'
+import { Button } from '@/components/admin/ui/Button'
+import { Card, CardBody } from '@/components/admin/ui/Card'
 
 export default function AccessDeniedPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-brand-beige/30">
-      <div className="w-full max-w-md space-y-6 rounded-2xl bg-white p-8 shadow-xl border border-gray-100 text-center">
-        <h1 className="text-2xl font-bold text-brand-charcoal">Access Denied</h1>
-        <p className="text-sm text-gray-600">
-          You do not have permission to access the admin dashboard with this account.
-        </p>
-        <Link
-          href="/login"
-          className="inline-flex items-center justify-center rounded-xl bg-brand-red px-4 py-2 text-sm font-bold text-white shadow-md hover:bg-red-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-red focus:ring-offset-2 transition-all"
-        >
-          Back to Login
-        </Link>
-      </div>
+    <div className="flex min-h-dvh items-center justify-center bg-zinc-50 p-6">
+      <Card className="w-full max-w-md">
+        <CardBody className="text-center">
+          <h1 className="text-lg font-semibold text-zinc-900">Access denied</h1>
+          <p className="mt-2 text-sm text-zinc-500">
+            This account cannot use the admin panel.
+          </p>
+          <Link href="/login" className="mt-6 inline-block">
+            <Button variant="danger">Back to sign in</Button>
+          </Link>
+        </CardBody>
+      </Card>
     </div>
   )
 }
-

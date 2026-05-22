@@ -7,6 +7,7 @@ import { CategoryList } from '@/components/dashboard/CategoryList'
 import { FoodList } from '@/components/dashboard/FoodList'
 import { SideList } from '@/components/dashboard/SideList'
 import { clsx } from 'clsx'
+import { Category, Profile } from '@/types'
 
 export default function MenuPage() {
   const router = useRouter()
@@ -24,18 +25,19 @@ export default function MenuPage() {
           .eq('id', user.id)
           .single()
         
-        if (!profile || profile.role !== 'super_admin') {
+        const role = (profile as Pick<Profile, 'role'> | null)?.role
+        if (!role || (role !== 'super_admin' && role !== 'admin')) {
           router.replace('/dashboard')
         }
       }
       setLoading(false)
     }
     checkRole()
-  }, [])
+  }, [router])
 
   if (loading) return <div>Loading...</div>
 
-  const handleCategorySelect = (category: any) => {
+  const handleCategorySelect = (category: Category) => {
     setSelectedCategoryId(category.id)
     setActiveTab('foods')
   }

@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/utils/supabase/client'
 import nigeriaStateAndLgas from '@/assets/nigeria-state-and-lgas.json'
-import { Check, Loader2, RotateCcw, Save } from 'lucide-react'
+import { Check, Loader2, RotateCcw } from 'lucide-react'
+import { Profile } from '@/types'
+import { Page, PageHeader } from '@/components/admin/Page'
+import { Button } from '@/components/admin/ui/Button'
+import { Card, CardBody, CardHeader } from '@/components/admin/ui/Card'
+import { Input } from '@/components/admin/ui/Field'
 
 type LgaGroup = {
   state: string
@@ -20,10 +25,11 @@ type TransportPriceRow = {
 const DEFAULT_PRICE = 2500
 
 export default function TransportationPage() {
-  const lgaRows = useMemo(() => {
+  const allBusinessLgaRows = useMemo(() => {
     const groups = nigeriaStateAndLgas as LgaGroup[]
     const rows: Array<{ state: string; lga: string }> = []
     for (const group of groups) {
+      if (group.state !== 'Enugu' && group.state !== 'Rivers') continue
       for (const lga of group.lgas) {
         rows.push({ state: group.state, lga })
       }
@@ -35,11 +41,47 @@ export default function TransportationPage() {
   const [saving, setSaving] = useState(false)
   const [pricesByLga, setPricesByLga] = useState<Record<string, number>>({})
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const [adminProfile, setAdminProfile] = useState<Pick<Profile, 'role' | 'location'> | null>(null)
+
+  const allowedStates = useMemo(() => {
+    if (adminProfile?.role === 'super_admin') return ['Enugu', 'Rivers']
+    if (adminProfile?.role === 'admin') {
+      if (adminProfile.location === 'Chasemall') return ['Enugu']
+      if (adminProfile.location === 'Eromo') return ['Rivers']
+    }
+    return []
+  }, [adminProfile])
+
+  const lgaRows = useMemo(() => {
+    if (allowedStates.length === 0) return []
+    return allBusinessLgaRows.filter((r) => allowedStates.includes(r.state))
+  }, [allBusinessLgaRows, allowedStates])
 
   const fetchPrices = async () => {
     setLoading(true)
-
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      const userId = session?.user?.id
+      let currentAdmin: Pick<Profile, 'role' | 'location'> | null = null
+      if (userId) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role, location')
+          .eq('id', userId)
+          .maybeSingle()
+
+        if (profileData) {
+          currentAdmin = {
+            role: profileData.role,
+            location: profileData.location,
+          }
+        }
+      }
+      setAdminProfile(currentAdmin)
+
       const { data, error } = await supabase
         .from('transport_prices')
         .select('lga, state, price')
@@ -55,7 +97,7 @@ export default function TransportationPage() {
       for (const row of rows) priceMap.set(row.lga, Number(row.price))
 
       const initial: Record<string, number> = {}
-      for (const { lga } of lgaRows) {
+      for (const { lga } of allBusinessLgaRows) {
         initial[lga] = priceMap.get(lga) ?? DEFAULT_PRICE
       }
 
@@ -113,92 +155,109 @@ export default function TransportationPage() {
     setLastSavedAt(null)
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-brand-charcoal">Transportation</h2>
-          <p className="text-gray-500 mt-2">
-            Set the transport fare by LGA. Default is ₦{DEFAULT_PRICE}.
-          </p>
-        </div>
+  if (!loading && allowedStates.length === 0) {
+    return (
+      <Page>
+        <Card>
+          <CardBody className="py-12 text-center">
+            <p className="font-medium text-zinc-900">Access denied</p>
+            <p className="mt-1 text-sm text-zinc-500">
+              You can only manage delivery prices for your assigned location.
+            </p>
+          </CardBody>
+        </Card>
+      </Page>
+    )
+  }
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleReset}
-            disabled={saving}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Reset
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || loading}
-            className="flex items-center gap-2 rounded-xl bg-brand-red px-5 py-2 text-sm font-bold text-white shadow-md hover:bg-red-700 hover:shadow-lg disabled:opacity-50 transition-all"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
-        </div>
-      </div>
+  return (
+    <Page>
+      <PageHeader
+        title="Delivery pricing"
+        description={`Set transport fare per LGA. Default ₦${DEFAULT_PRICE.toLocaleString('en-NG')}.`}
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleReset}
+              disabled={saving || loading || lgaRows.length === 0}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleSave}
+              disabled={saving || loading || lgaRows.length === 0}
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </>
+        }
+      />
 
       {lastSavedAt && (
-        <div className="rounded-xl bg-green-50 p-4 text-sm text-green-800 flex items-center gap-2">
-          <Check className="h-4 w-4" />
+        <p className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
           Saved {new Date(lastSavedAt).toLocaleString()}
-        </div>
+        </p>
       )}
 
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-lg overflow-hidden">
-        <div className="border-b border-gray-100 bg-gray-50/50 p-6">
-          <h3 className="text-lg font-bold text-brand-charcoal">LGA Transport Prices</h3>
-        </div>
-
-        <div className="overflow-x-auto">
+      <Card>
+        <CardHeader>
+          <h2 className="text-sm font-semibold text-zinc-900">LGA fares</h2>
+        </CardHeader>
+        <CardBody className="p-0">
           {loading ? (
-            <div className="px-6 py-10 text-center text-gray-500 flex items-center justify-center gap-2">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              Loading transport prices...
+            <div className="flex items-center justify-center gap-2 px-6 py-12 text-sm text-zinc-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading…
             </div>
           ) : (
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50/50 text-gray-500 font-bold uppercase tracking-wider text-xs border-b border-gray-100">
-                <tr>
-                  <th className="px-6 py-4">State</th>
-                  <th className="px-6 py-4">LGA</th>
-                  <th className="px-6 py-4 text-right">Price (₦)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {lgaRows.map((row) => (
-                  <tr key={row.lga} className="hover:bg-gray-50/50">
-                    <td className="px-6 py-4 text-gray-600">{row.state}</td>
-                    <td className="px-6 py-4 font-medium text-brand-charcoal">{row.lga}</td>
-                    <td className="px-6 py-4 text-right">
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={pricesByLga[row.lga] ?? DEFAULT_PRICE}
-                        onChange={(e) => {
-                          const next = Number(e.target.value)
-                          setPricesByLga((prev) => ({
-                            ...prev,
-                            [row.lga]: Number.isFinite(next) ? next : DEFAULT_PRICE,
-                          }))
-                        }}
-                        className="w-32 rounded-xl border border-gray-200 p-2 text-right focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red outline-none transition-all"
-                      />
-                    </td>
+            <div className="admin-scroll overflow-x-auto">
+              <table className="w-full min-w-[480px] text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-100 bg-zinc-50/80 text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    <th className="px-6 py-3">State</th>
+                    <th className="px-6 py-3">LGA</th>
+                    <th className="px-6 py-3 text-right">Price (₦)</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-zinc-50">
+                  {lgaRows.map((row) => (
+                    <tr key={row.lga} className="hover:bg-zinc-50/80">
+                      <td className="px-6 py-3 text-zinc-600">{row.state}</td>
+                      <td className="px-6 py-3 font-medium text-zinc-900">{row.lga}</td>
+                      <td className="px-6 py-3 text-right">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={pricesByLga[row.lga] ?? DEFAULT_PRICE}
+                          onChange={(e) => {
+                            const next = Number(e.target.value)
+                            setPricesByLga((prev) => ({
+                              ...prev,
+                              [row.lga]: Number.isFinite(next) ? next : DEFAULT_PRICE,
+                            }))
+                          }}
+                          className="ml-auto w-28 text-right tabular-nums"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
-        </div>
-      </div>
-    </div>
+        </CardBody>
+      </Card>
+    </Page>
   )
 }
-
