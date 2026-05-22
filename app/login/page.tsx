@@ -32,38 +32,41 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-zinc-50 lg:flex-row">
-      <div className="hidden flex-1 flex-col justify-between bg-brand-charcoal p-10 text-white lg:flex">
+    <div className="flex min-h-dvh flex-col lg:flex-row">
+      {/* Left — banner in circle */}
+      <div className="flex flex-col items-center justify-center bg-brand-charcoal px-6 py-10 text-white lg:w-1/2 lg:min-h-dvh lg:px-12">
         <Image
           src="/assets/lightmanchi.png"
           alt="Manchi"
           width={160}
           height={48}
-          className="h-10 w-auto brightness-0 invert"
+          className="mb-6 h-10 w-auto object-contain sm:h-11"
           priority
         />
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Operations</h1>
-          <p className="mt-2 max-w-sm text-sm text-zinc-400">
-            Manage orders, delivery pricing, menu, and your team from one place.
-          </p>
+
+        <div className="relative h-48 w-48 shrink-0 overflow-hidden rounded-full border-4 border-white/20 shadow-2xl sm:h-56 sm:w-56 lg:h-64 lg:w-64">
+          <Image
+            src="/assets/banner.jpg"
+            alt="Manchi banner"
+            fill
+            priority
+            className="object-cover object-center"
+            sizes="(max-width: 1024px) 192px, 256px"
+          />
         </div>
-        <p className="text-xs text-zinc-500">© Manchi Admin</p>
+
+        <h1 className="mt-8 text-center text-2xl font-semibold tracking-tight sm:text-3xl">
+          Operations
+        </h1>
+        <p className="mt-2 max-w-xs text-center text-sm text-zinc-400">
+          Manage orders, delivery pricing, menu, and your team from one place.
+        </p>
+        <p className="mt-auto hidden pt-10 text-xs text-zinc-500 lg:block">© Manchi Admin</p>
       </div>
 
-      <div className="flex flex-1 items-center justify-center p-6 sm:p-10">
+      {/* Right — sign in */}
+      <div className="flex flex-1 items-center justify-center bg-zinc-50 p-6 sm:p-10">
         <div className="w-full max-w-sm">
-          <div className="mb-8 text-center lg:hidden">
-            <Image
-              src="/assets/lightmanchi.png"
-              alt="Manchi"
-              width={140}
-              height={42}
-              className="mx-auto h-10 w-auto"
-              priority
-            />
-          </div>
-
           <Card>
             <CardBody>
               <h2 className="text-lg font-semibold text-zinc-900">Sign in</h2>
