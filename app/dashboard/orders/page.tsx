@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/utils/supabase/client'
 import { Order, OrderStatus, Profile } from '@/types'
+import { applyLocationFilter, getAdminProfile } from '@/utils/adminLocation'
 import Link from 'next/link'
 import { Page, PageHeader } from '@/components/admin/Page'
 import { Card, CardBody } from '@/components/admin/ui/Card'
@@ -44,29 +45,7 @@ export default function OrdersPage() {
   async function fetchOrders() {
     setLoading(true)
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    const userId = session?.user?.id
-
-    let currentAdmin: Pick<Profile, 'id' | 'role' | 'location'> | null = null
-    if (userId) {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('id, role, location')
-        .eq('id', userId)
-        .maybeSingle()
-
-      if (profileData) {
-        currentAdmin = {
-          id: profileData.id,
-          role: profileData.role,
-          location: profileData.location,
-        }
-      }
-    }
-
+    const currentAdmin = await getAdminProfile()
     setAdminProfile(currentAdmin)
 
     let query = supabase
@@ -74,13 +53,7 @@ export default function OrdersPage() {
       .select('*')
       .order('created_at', { ascending: false })
 
-    if (
-      currentAdmin?.role === 'admin' &&
-      currentAdmin.location &&
-      currentAdmin.location !== 'All'
-    ) {
-      query = query.eq('location', currentAdmin.location)
-    }
+    query = applyLocationFilter(query, currentAdmin)
 
     const { data, error } = await query
     

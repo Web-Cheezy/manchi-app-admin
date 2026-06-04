@@ -189,12 +189,32 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
     }
   }
 
+  const hideFood = async (id: number) => {
+    const { error: hideError } = await supabase
+      .from('foods')
+      .update({ is_available: false })
+      .eq('id', id)
+
+    if (hideError) {
+      console.error('Error hiding food:', hideError)
+      alert('Error hiding food: ' + hideError.message)
+      return
+    }
+
+    alert('Food hidden successfully.')
+    fetchData()
+  }
+
+  const isOrderReferenceError = (error: { code?: string; message?: string }) =>
+    error.code === '23503' ||
+    /foreign key|referenced|order_items/i.test(error.message ?? '')
+
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this food?')) return
 
     const { count, error: orderItemsError } = await supabase
       .from('order_items')
-      .select('id', { count: 'exact', head: true })
+      .select('*', { count: 'exact', head: true })
       .eq('food_id', id)
 
     if (orderItemsError) {
@@ -207,21 +227,18 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
       const hide = confirm(
         'This food is already used in customer orders, so it cannot be deleted.\n\nDo you want to hide it instead?'
       )
+      if (hide) await hideFood(id)
+      return
+    }
 
-      if (hide) {
-        const { error: hideError } = await supabase
-          .from('foods')
-          .update({ is_available: false })
-          .eq('id', id)
+    const { error: sidesError } = await supabase
+      .from('food_sides')
+      .delete()
+      .eq('food_id', id)
 
-        if (hideError) {
-          alert('Error hiding food')
-        } else {
-          alert('Food hidden successfully.')
-          fetchData()
-        }
-      }
-
+    if (sidesError) {
+      console.error('Error deleting food sides:', sidesError)
+      alert('Error deleting linked sides: ' + sidesError.message)
       return
     }
 
@@ -232,7 +249,7 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
 
     if (availabilityError) {
       console.error('Error deleting food availability:', availabilityError)
-      alert('Error deleting food availability')
+      alert('Error deleting food availability: ' + availabilityError.message)
       return
     }
 
@@ -240,9 +257,17 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
       .from('foods')
       .delete()
       .eq('id', id)
-    
+
     if (error) {
-      alert('Error deleting food')
+      console.error('Error deleting food:', error)
+      if (isOrderReferenceError(error)) {
+        const hide = confirm(
+          'This food is referenced in past orders and cannot be deleted.\n\nDo you want to hide it instead?'
+        )
+        if (hide) await hideFood(id)
+        return
+      }
+      alert('Error deleting food: ' + error.message)
     } else {
       fetchData()
     }

@@ -79,3 +79,32 @@ export interface Profile {
   role?: 'super_admin' | 'admin' | 'customer'
   location?: 'Chasemall' | 'Eromo' | 'All'
 }
+
+export interface Transaction {
+  id: number
+  created_at: string
+  reference: string
+  email: string
+  amount: number
+  status: string
+  user_id?: string | null
+  metadata?: Record<string, unknown> | null
+  location?: string | null
+}
+
+export const PAID_TRANSACTION_STATUSES = ['success', 'completed'] as const
+
+export function isPaidTransaction(status: string): boolean {
+  return PAID_TRANSACTION_STATUSES.includes(
+    status.toLowerCase() as (typeof PAID_TRANSACTION_STATUSES)[number]
+  )
+}
+
+/** Paystack stores transaction amounts in kobo; orders.total_amount is in naira. */
+export function transactionAmountInNaira(amount: number): number {
+  return Number(amount) / 100
+}
+
+export function formatNaira(amount: number): string {
+  return `₦${Number(amount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}

@@ -2,34 +2,56 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/utils/supabase/client'
-import { Order } from '@/types'
+import { Order, formatNaira } from '@/types'
 import { Banknote, CheckCircle, Clock, Package } from 'lucide-react'
 import { Page } from '@/components/admin/Page'
 import { StatCard } from '@/components/admin/StatCard'
 import { Card, CardBody, CardHeader } from '@/components/admin/ui/Card'
 import { OrderStatusBadge } from '@/components/admin/ui/Badge'
 import Link from 'next/link'
+import { applyLocationFilter, getAdminProfile, shouldFilterByLocation } from '@/utils/adminLocation'
 
 export default function DashboardPage() {
   const [orders, setOrders] = useState<Order[]>([])
+  const [totalRevenue, setTotalRevenue] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [locationLabel, setLocationLabel] = useState<string | null>(null)
 
   useEffect(() => {
     ;(async () => {
-      const { data, error } = await supabase
+      const profile = await getAdminProfile()
+
+      if (shouldFilterByLocation(profile)) {
+        setLocationLabel(profile.location)
+      } else {
+        setLocationLabel(null)
+      }
+
+      let ordersQuery = supabase
         .from('orders')
         .select('*')
         .order('created_at', { ascending: false })
 
-      if (!error) setOrders(data || [])
+      ordersQuery = applyLocationFilter(ordersQuery, profile)
+
+      const { data, error } = await ordersQuery
+
+      if (!error && data) {
+        const rows = data as Order[]
+        setOrders(rows)
+        setTotalRevenue(
+          rows
+            .filter((o) => o.status !== 'cancelled')
+            .reduce((sum, o) => sum + Number(o.total_amount), 0)
+        )
+      } else if (error) {
+        console.error('Error fetching orders:', error)
+      }
+
       setLoading(false)
     })()
   }, [])
 
-  const totalRevenue = orders.reduce(
-    (sum, o) => sum + (Number(o.total_amount) || 0),
-    0
-  )
   const pending = orders.filter((o) => o.status === 'pending').length
   const delivered = orders.filter((o) => o.status === 'delivered').length
 
@@ -37,8 +59,8 @@ export default function DashboardPage() {
     <Page>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Revenue"
-          value={`₦${totalRevenue.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`}
+          label={locationLabel ? `Revenue (${locationLabel})` : 'Revenue'}
+          value={formatNaira(totalRevenue)}
           icon={Banknote}
           tone="green"
         />
@@ -88,7 +110,7 @@ export default function DashboardPage() {
                         <OrderStatusBadge status={order.status} />
                       </td>
                       <td className="px-6 py-3.5 tabular-nums text-zinc-700">
-                        ₦{Number(order.total_amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                        {formatNaira(Number(order.total_amount))}
                       </td>
                       <td className="px-6 py-3.5 text-zinc-500">
                         {new Date(order.created_at).toLocaleDateString()}
