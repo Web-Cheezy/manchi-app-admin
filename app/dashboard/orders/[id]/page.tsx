@@ -2,7 +2,15 @@
 
 import { useEffect, useState, use } from 'react'
 import { supabase } from '@/utils/supabase/client'
-import { Order, OrderItem, Profile } from '@/types'
+import {
+  Order,
+  OrderItem,
+  Profile,
+  formatNaira,
+  getOrderItemDisplayName,
+  getOrderItemLineTotal,
+  getOrderItemSelections,
+} from '@/types'
 import { ArrowLeft, MapPin, Phone, User } from 'lucide-react'
 import Link from 'next/link'
 
@@ -111,19 +119,34 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
       if (itemsData && itemsData.length > 0) {
         setItems(itemsData)
       } else if (orderData.items && Array.isArray(orderData.items)) {
-         // Fallback to JSONB items if order_items table is empty/unused
-         const jsonItems: DetailedOrderItem[] = orderData.items.map((item: any, idx: number) => ({
-             id: item.id || idx,
-             order_id: orderData.id,
-             food_id: item.food_id || 0,
-             quantity: item.quantity || 1,
-             price_at_time: item.price || 0,
-             options: item.options || [],
-             created_at: orderData.created_at,
-             foods: { name: item.name || 'Item', image_url: item.image_url },
-             sides: null
-         }))
-         setItems(jsonItems)
+        const jsonItems: DetailedOrderItem[] = orderData.items.map(
+          (item: Record<string, unknown>, idx: number) => ({
+            id: (item.id as number) || idx,
+            order_id: orderData.id,
+            food_id: (item.food_id as number) || 0,
+            quantity: (item.quantity as number) || 1,
+            price_at_time:
+              (item.item_total as number) ||
+              (item.base_price as number) ||
+              (item.price as number) ||
+              0,
+            options: item.selections
+              ? {
+                  food_name: item.food_name,
+                  base_price: item.base_price,
+                  selections: item.selections,
+                  item_total: item.item_total,
+                }
+              : item.options || item,
+            created_at: orderData.created_at,
+            foods: {
+              name: (item.food_name as string) || (item.name as string) || 'Item',
+              image_url: item.image_url as string | undefined,
+            },
+            sides: null,
+          })
+        )
+        setItems(jsonItems)
       } else {
         setItems([])
       }
@@ -235,42 +258,56 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
           <h3 className="font-semibold">Order Items</h3>
         </div>
         <div className="divide-y divide-gray-100">
-          {items.map((item) => (
-            <div key={item.id} className="flex items-center justify-between p-6">
-              <div className="flex items-start gap-4">
-                {(item.foods?.image_url || item.sides?.image_url) && (
-                  <img 
-                    src={item.foods?.image_url || item.sides?.image_url} 
-                    alt={item.foods?.name || item.sides?.name} 
-                    className="h-16 w-16 rounded-md object-cover bg-gray-100" 
-                  />
-                )}
-                <div>
-                  <h4 className="font-medium text-gray-900">
-                    {item.foods?.name || item.sides?.name || 'Unknown Item'}
-                  </h4>
-                  <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
-                  {Array.isArray(item.options) && item.options.length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {item.options.map((opt: any, idx: number) => (
-                        <span key={idx} className="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">
-                          {opt.name} x{opt.quantity || 1}
-                        </span>
-                      ))}
-                    </div>
+          {items.map((item) => {
+            const displayName = getOrderItemDisplayName(
+              item.options,
+              item.foods?.name || item.sides?.name || 'Unknown Item'
+            )
+            const selections = getOrderItemSelections(item.options)
+            const lineTotal = getOrderItemLineTotal(
+              item.options,
+              Number(item.price_at_time),
+              item.quantity
+            )
+
+            return (
+              <div key={item.id} className="flex items-center justify-between p-6">
+                <div className="flex items-start gap-4">
+                  {(item.foods?.image_url || item.sides?.image_url) && (
+                    <img
+                      src={item.foods?.image_url || item.sides?.image_url}
+                      alt={displayName}
+                      className="h-16 w-16 rounded-md object-cover bg-gray-100"
+                    />
                   )}
+                  <div>
+                    <h4 className="font-medium text-gray-900">{displayName}</h4>
+                    <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
+                    {selections.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {selections.map((sel, idx) => (
+                          <p key={idx} className="text-xs text-gray-600">
+                            {sel.group ? `${sel.group}: ` : ''}
+                            {sel.name}
+                            {sel.quantity > 1 ? ` ×${sel.quantity}` : ''}
+                            {sel.price ? ` (+${formatNaira(sel.price)})` : ''}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-medium">{formatNaira(lineTotal / item.quantity)}</p>
+                  <p className="text-sm text-gray-500">Total: {formatNaira(lineTotal)}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-medium">₦{Number(item.price_at_time).toFixed(2)}</p>
-                <p className="text-sm text-gray-500">Total: ₦{(Number(item.price_at_time) * item.quantity).toFixed(2)}</p>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
         <div className="bg-gray-50 px-6 py-4 border-t flex justify-between items-center">
           <span className="font-semibold">Total Amount</span>
-          <span className="text-xl font-bold">₦{Number(order.total_amount).toFixed(2)}</span>
+          <span className="text-xl font-bold">{formatNaira(Number(order.total_amount))}</span>
         </div>
       </div>
     </div>

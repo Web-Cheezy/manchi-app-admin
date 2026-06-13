@@ -5,13 +5,12 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/utils/supabase/client'
 import { CategoryList } from '@/components/dashboard/CategoryList'
 import { FoodList } from '@/components/dashboard/FoodList'
-import { SideList } from '@/components/dashboard/SideList'
 import { clsx } from 'clsx'
 import { Category, Profile } from '@/types'
 
 export default function MenuPage() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'categories' | 'foods' | 'sides'>('categories')
+  const [activeTab, setActiveTab] = useState<'categories' | 'foods'>('categories')
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -42,7 +41,7 @@ export default function MenuPage() {
     setActiveTab('foods')
   }
 
-  const handleTabChange = (tabId: 'categories' | 'foods' | 'sides') => {
+  const handleTabChange = (tabId: 'categories' | 'foods') => {
     setActiveTab(tabId)
     if (tabId === 'categories') {
       setSelectedCategoryId(null)
@@ -60,7 +59,6 @@ export default function MenuPage() {
           {[
             { id: 'categories', name: 'Categories' },
             { id: 'foods', name: 'Foods' },
-            { id: 'sides', name: 'Sides' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -81,7 +79,6 @@ export default function MenuPage() {
       <div className="mt-6">
         {activeTab === 'categories' && <CategoryList onSelect={handleCategorySelect} />}
         {activeTab === 'foods' && <FoodList selectedCategoryId={selectedCategoryId} />}
-        {activeTab === 'sides' && <SideList />}
       </div>
     </div>
   )

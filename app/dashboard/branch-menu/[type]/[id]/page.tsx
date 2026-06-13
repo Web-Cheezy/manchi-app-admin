@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/utils/supabase/client'
+import { adminApi, AdminApiError } from '@/utils/adminApi'
 import { AvailabilityStatus, Profile } from '@/types'
 import { Loader2, ChevronLeft, CheckCircle2, Archive, XCircle, Image as ImageIcon } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -86,27 +87,20 @@ export default function AvailabilityUpdatePage() {
     if (!profile || !activeLocation) return
     setUpdating(true)
 
-    const availabilityTable = type === 'food' ? 'food_availability' : 'side_availability'
-    const idField = type === 'food' ? 'food_id' : 'side_id'
-
-    const { error } = await supabase
-      .from(availabilityTable)
-      .upsert({
-        [idField]: id,
+    try {
+      await adminApi.updateAvailability({
+        type,
+        id: parseInt(id, 10),
         location: activeLocation,
-        status: status,
-        updated_at: new Date().toISOString()
-      }, { onConflict: `${idField},location` })
-
-    if (error) {
-      alert('Error updating status: ' + error.message)
-    } else {
+        status,
+      })
       setCurrentStatus(status)
-      setTimeout(() => {
-        router.back()
-      }, 500)
+      setTimeout(() => router.back(), 500)
+    } catch (err) {
+      alert(err instanceof AdminApiError ? err.message : 'Error updating status')
+    } finally {
+      setUpdating(false)
     }
-    setUpdating(false)
   }
 
   if (loading) {
