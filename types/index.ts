@@ -13,6 +13,7 @@ export interface Order {
   items?: any[] // JSONB column from orders table
   location?: string
   delivery_method?: 'delivery' | 'pickup'
+  order_note?: string | null
 }
 
 export interface OrderItem {

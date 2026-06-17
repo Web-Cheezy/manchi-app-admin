@@ -304,7 +304,7 @@ export default function OrdersPage() {
       <Card>
         <CardBody className="p-0">
           <div className="admin-scroll overflow-x-auto">
-          <table className="min-w-[960px] w-full text-sm text-left">
+          <table className="min-w-[1100px] w-full text-sm text-left">
             <thead className="border-b border-zinc-100 bg-zinc-50/80 text-xs font-medium uppercase tracking-wide text-zinc-500">
               <tr>
                 <th className="px-6 py-4">Order</th>
@@ -313,6 +313,7 @@ export default function OrdersPage() {
                 <th className="px-6 py-4">Location</th>
                 <th className="px-6 py-4">Method</th>
                 <th className="px-6 py-4">Items</th>
+                <th className="px-6 py-4">Note</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Total</th>
                 <th className="px-6 py-4">Date</th>
@@ -322,11 +323,11 @@ export default function OrdersPage() {
             <tbody className="divide-y divide-zinc-50">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-10 text-center text-sm text-zinc-500">Loading…</td>
+                  <td colSpan={11} className="px-6 py-10 text-center text-sm text-zinc-500">Loading…</td>
                 </tr>
               ) : filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-10 text-center text-sm text-zinc-500">No orders found.</td>
+                  <td colSpan={11} className="px-6 py-10 text-center text-sm text-zinc-500">No orders found.</td>
                 </tr>
               ) : (
                 filteredOrders.map((order) => (
@@ -379,6 +380,15 @@ export default function OrdersPage() {
                     </td>
                     <td className="px-6 py-4 text-gray-700">
                       {getItemsSummary(order)}
+                    </td>
+                    <td className="px-6 py-4 max-w-[12rem] text-xs text-gray-600">
+                      {order.order_note?.trim() ? (
+                        <span className="line-clamp-2" title={order.order_note}>
+                          {order.order_note}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <Select

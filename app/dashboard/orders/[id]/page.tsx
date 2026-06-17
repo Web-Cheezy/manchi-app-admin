@@ -11,7 +11,7 @@ import {
   getOrderItemLineTotal,
   getOrderItemSelections,
 } from '@/types'
-import { ArrowLeft, MapPin, Phone, User } from 'lucide-react'
+import { ArrowLeft, MapPin, MessageSquare, Phone, User } from 'lucide-react'
 import Link from 'next/link'
 
 type DetailedOrderItem = OrderItem & {
@@ -251,6 +251,18 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
             )}
           </div>
         </div>
+      </div>
+
+      <div className="rounded-xl border bg-white p-6 shadow-sm">
+        <h3 className="mb-3 text-lg font-semibold flex items-center gap-2">
+          <MessageSquare className="h-5 w-5 text-gray-500" />
+          Order note
+        </h3>
+        {order.order_note?.trim() ? (
+          <p className="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed">{order.order_note}</p>
+        ) : (
+          <p className="text-sm text-gray-400 italic">No note from customer</p>
+        )}
       </div>
 
       <div className="rounded-xl border bg-white overflow-hidden shadow-sm">
