@@ -46,10 +46,14 @@ async function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T
   }
 
   if (!res.ok) {
-    const message =
-      (data as { error?: string })?.error ||
-      (data as { message?: string })?.message ||
-      (typeof data === 'string' ? data : 'Request failed')
+    const isHtml =
+      typeof data === 'string' &&
+      (data.trimStart().startsWith('<!DOCTYPE') || data.trimStart().startsWith('<html'))
+    const message = isHtml
+      ? 'Admin API returned a page instead of JSON. The manchicodes backend may be missing the /api/admin routes — redeploy https://manchicodes.vercel.app after a successful build, and set BACKEND_URL to that URL (no trailing slash).'
+      : (data as { error?: string })?.error ||
+        (data as { message?: string })?.message ||
+        (typeof data === 'string' ? data : 'Request failed')
     throw new AdminApiError(res.status, message, data)
   }
 

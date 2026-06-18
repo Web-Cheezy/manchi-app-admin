@@ -10,6 +10,13 @@ function getBackendBaseUrl(): string {
   ).replace(/\/$/, '')
 }
 
+function getRequestOrigin(request: NextRequest): string {
+  const host = request.headers.get('host')
+  if (!host) return ''
+  const proto = request.headers.get('x-forwarded-proto') ?? 'http'
+  return `${proto}://${host}`.replace(/\/$/, '')
+}
+
 async function proxyAdmin(
   request: NextRequest,
   pathSegments: string[]
@@ -17,7 +24,18 @@ async function proxyAdmin(
   const baseUrl = getBackendBaseUrl()
   if (!baseUrl) {
     return NextResponse.json(
-      { error: 'Backend API URL is not configured.' },
+      { error: 'Backend API URL is not configured. Set BACKEND_URL to your manchicodes API (e.g. https://manchicodes.vercel.app).' },
+      { status: 500 }
+    )
+  }
+
+  const requestOrigin = getRequestOrigin(request)
+  if (requestOrigin && baseUrl === requestOrigin) {
+    return NextResponse.json(
+      {
+        error:
+          'BACKEND_URL points to the admin app itself. Set BACKEND_URL to the manchicodes API host (e.g. https://manchicodes.vercel.app), not the admin panel URL.',
+      },
       { status: 500 }
     )
   }
