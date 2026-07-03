@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/utils/supabase/client'
 import { Category } from '@/types'
 import { Plus, Trash2, Edit2, X, Check } from 'lucide-react'
+import { setGlobalFoodVisibility } from '@/utils/foodVisibility'
 
 export function CategoryList({ onSelect }: { onSelect?: (category: Category) => void }) {
   const [categories, setCategories] = useState<Category[]>([])
@@ -94,15 +95,12 @@ export function CategoryList({ onSelect }: { onSelect?: (category: Category) => 
         )
 
         if (hide) {
-          const { error: hideError } = await supabase
-            .from('foods')
-            .update({ is_available: false })
-            .eq('category_id', id)
-
-          if (hideError) {
-            alert('Error hiding foods')
-          } else {
+          try {
+            await setGlobalFoodVisibility(foodIds, 'unavailable')
             alert('Foods hidden successfully.')
+            fetchCategories()
+          } catch {
+            alert('Error hiding foods')
           }
         }
 

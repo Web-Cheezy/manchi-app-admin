@@ -13,6 +13,7 @@ import {
 } from '@/types'
 import { ArrowLeft, MapPin, MessageSquare, Phone, User } from 'lucide-react'
 import Link from 'next/link'
+import { isOrderPaid } from '@/utils/paidOrders'
 
 type DetailedOrderItem = OrderItem & {
   foods?: {
@@ -39,11 +40,13 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
   const [items, setItems] = useState<DetailedOrderItem[]>([])
   const [loading, setLoading] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
+  const [denyReason, setDenyReason] = useState<'location' | 'unpaid' | null>(null)
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
       setLoading(true)
       setAccessDenied(false)
+      setDenyReason(null)
 
       const {
         data: { session },
@@ -85,6 +88,15 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
         currentAdmin.location !== 'All' &&
         orderData.location !== currentAdmin.location
       ) {
+        setDenyReason('location')
+        setAccessDenied(true)
+        setLoading(false)
+        return
+      }
+
+      const paid = await isOrderPaid(Number(orderData.id))
+      if (!paid) {
+        setDenyReason('unpaid')
         setAccessDenied(true)
         setLoading(false)
         return
@@ -93,7 +105,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
       // Fetch Profile for contact info
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('full_name, phone, phone_number')
+        .select('full_name, phone_number')
         .eq('id', orderData.user_id)
         .maybeSingle()
 
@@ -101,7 +113,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
         ...orderData,
         profiles: profileData ? {
           full_name: profileData.full_name,
-          phone_number: profileData.phone_number || profileData.phone,
+          phone_number: profileData.phone_number,
           email: null
         } : null,
       })
@@ -163,7 +175,9 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
       <div className="p-8 text-center space-y-3">
         <div className="text-lg font-semibold text-brand-charcoal">Access denied</div>
         <div className="text-sm text-gray-500">
-          You can only view orders from your location.
+          {denyReason === 'unpaid'
+            ? 'This order has not been paid for yet. Only verified payments appear in the admin dashboard.'
+            : 'You can only view orders from your location.'}
         </div>
         <div>
           <Link

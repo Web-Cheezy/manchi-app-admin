@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/utils/supabase/client'
 import { Order, formatNaira } from '@/types'
 import { Banknote, CheckCircle, Clock, Package } from 'lucide-react'
 import { Page } from '@/components/admin/Page'
@@ -9,7 +8,8 @@ import { StatCard } from '@/components/admin/StatCard'
 import { Card, CardBody, CardHeader } from '@/components/admin/ui/Card'
 import { OrderStatusBadge } from '@/components/admin/ui/Badge'
 import Link from 'next/link'
-import { applyLocationFilter, getAdminProfile, shouldFilterByLocation } from '@/utils/adminLocation'
+import { getAdminProfile, shouldFilterByLocation } from '@/utils/adminLocation'
+import { fetchPaidOrders } from '@/utils/paidOrders'
 
 export default function DashboardPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -27,26 +27,19 @@ export default function DashboardPage() {
         setLocationLabel(null)
       }
 
-      let ordersQuery = supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      ordersQuery = applyLocationFilter(ordersQuery, profile)
-
-      const { data, error } = await ordersQuery
-
-      if (!error && data) {
-        const rows = data as Order[]
-        setOrders(rows)
-        setTotalRevenue(
-          rows
-            .filter((o) => o.status !== 'cancelled')
-            .reduce((sum, o) => sum + Number(o.total_amount), 0)
-        )
-      } else if (error) {
-        console.error('Error fetching orders:', error)
+      let rows: Order[] = []
+      try {
+        rows = await fetchPaidOrders(profile)
+      } catch (err) {
+        console.error('Error fetching paid orders:', err)
       }
+
+      setOrders(rows)
+      setTotalRevenue(
+        rows
+          .filter((o) => o.status !== 'cancelled')
+          .reduce((sum, o) => sum + Number(o.total_amount), 0)
+      )
 
       setLoading(false)
     })()

@@ -5,6 +5,7 @@ import { supabase } from '@/utils/supabase/client'
 import { Food, Category, formatNaira } from '@/types'
 import { Plus, Trash2, Edit2, X, Check, Layers } from 'lucide-react'
 import { OptionGroupEditor } from '@/components/dashboard/OptionGroupEditor'
+import { isFoodGloballyHidden, setGlobalFoodVisibility } from '@/utils/foodVisibility'
 
 export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number | null }) {
   const [foods, setFoods] = useState<Food[]>([])
@@ -31,7 +32,7 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
   const fetchData = async () => {
     setLoading(true)
     const [foodsRes, catsRes] = await Promise.all([
-      supabase.from('foods').select('*, categories(name)').order('created_at', { ascending: false }),
+      supabase.from('foods').select('*, categories(name), food_availability(*)').order('created_at', { ascending: false }),
       supabase.from('categories').select('*'),
     ])
 
@@ -45,13 +46,13 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
   }
 
   const handleToggleGlobal = async (food: Food) => {
-    const { error } = await supabase
-      .from('foods')
-      .update({ is_available: !food.is_available })
-      .eq('id', food.id)
-
-    if (error) alert('Error updating global availability')
-    else fetchData()
+    const nextStatus = isFoodGloballyHidden(food) ? 'available' : 'unavailable'
+    try {
+      await setGlobalFoodVisibility([food.id], nextStatus)
+      fetchData()
+    } catch (error: any) {
+      alert('Error updating food visibility: ' + (error?.message || 'Unknown error'))
+    }
   }
 
   const handleSave = async () => {
@@ -145,18 +146,13 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
   }
 
   const hideFood = async (id: number) => {
-    const { error: hideError } = await supabase
-      .from('foods')
-      .update({ is_available: false })
-      .eq('id', id)
-
-    if (hideError) {
-      alert('Error hiding food: ' + hideError.message)
-      return
+    try {
+      await setGlobalFoodVisibility([id], 'unavailable')
+      alert('Food hidden successfully.')
+      fetchData()
+    } catch (error: any) {
+      alert('Error hiding food: ' + (error?.message || 'Unknown error'))
     }
-
-    alert('Food hidden successfully.')
-    fetchData()
   }
 
   const isOrderReferenceError = (error: { code?: string; message?: string }) =>
@@ -346,7 +342,7 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
               <th className="px-6 py-4">Category</th>
               <th className="px-6 py-4">Base price</th>
               <th className="px-6 py-4">Menu price</th>
-              <th className="px-6 py-4">Available</th>
+              <th className="px-6 py-4">Visibility</th>
               <th className="px-6 py-4">Actions</th>
             </tr>
           </thead>
@@ -356,8 +352,11 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
             ) : filteredFoods.length === 0 ? (
               <tr><td colSpan={7} className="px-6 py-8 text-center">No foods found.</td></tr>
             ) : (
-              filteredFoods.map((food) => (
-                <tr key={food.id} className="hover:bg-gray-50/50">
+              filteredFoods.map((food) => {
+                const hidden = isFoodGloballyHidden(food)
+
+                return (
+                  <tr key={food.id} className="hover:bg-gray-50/50">
                   <td className="px-6 py-4">
                     <div className="h-10 w-10 rounded bg-gray-100 overflow-hidden">
                       {food.image_url && <img src={food.image_url} alt="" className="h-full w-full object-cover" />}
@@ -373,10 +372,10 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
                     <button
                       onClick={() => handleToggleGlobal(food)}
                       className={`rounded-full px-2 py-1 text-xs font-medium ${
-                        food.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        hidden ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
                       }`}
                     >
-                      {food.is_available ? 'Active' : 'Hidden'}
+                      {hidden ? 'Hidden' : 'Active'}
                     </button>
                   </td>
                   <td className="px-6 py-4">
@@ -398,13 +397,15 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
                       <button
                         onClick={() => handleDelete(food.id)}
                         className="text-red-600 hover:text-red-900"
+                        title={hidden ? 'Delete permanently' : 'Delete or hide'}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
-                </tr>
-              ))
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>

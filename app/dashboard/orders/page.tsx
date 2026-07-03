@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/utils/supabase/client'
 import { Order, OrderStatus, Profile } from '@/types'
-import { applyLocationFilter, getAdminProfile } from '@/utils/adminLocation'
+import { getAdminProfile } from '@/utils/adminLocation'
+import { fetchPaidOrders } from '@/utils/paidOrders'
 import Link from 'next/link'
 import { Page, PageHeader } from '@/components/admin/Page'
 import { Card, CardBody } from '@/components/admin/ui/Card'
@@ -48,19 +49,8 @@ export default function OrdersPage() {
     const currentAdmin = await getAdminProfile()
     setAdminProfile(currentAdmin)
 
-    let query = supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    query = applyLocationFilter(query, currentAdmin)
-
-    const { data, error } = await query
-    
-    if (error) {
-      console.error('Error fetching orders:', error)
-    } else {
-      const rows: any[] = data || []
+    try {
+      const rows = await fetchPaidOrders(currentAdmin)
 
       const userIds = Array.from(
         new Set(rows.map((row) => row.user_id).filter(Boolean))
@@ -73,10 +63,9 @@ export default function OrdersPage() {
 
       if (userIds.length > 0) {
         // Fetch profiles without 'email' since it's not in the public.profiles schema
-        // Fetch both 'phone' and 'phone_number' just in case
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
-          .select('id, full_name, phone, phone_number')
+          .select('id, full_name, phone_number')
           .in('id', userIds)
 
         if (profilesError) {
@@ -85,7 +74,7 @@ export default function OrdersPage() {
           for (const p of profilesData as any[]) {
             profileMap.set(p.id, {
               full_name: p.full_name ?? null,
-              phone_number: p.phone_number ?? p.phone ?? null,
+              phone_number: p.phone_number ?? null,
               email: null, // Email is not in profiles table
             })
           }
@@ -98,6 +87,8 @@ export default function OrdersPage() {
       }))
 
       setOrders(normalized)
+    } catch (error) {
+      console.error('Error fetching orders:', error)
     }
     setLoading(false)
   }
@@ -253,7 +244,7 @@ export default function OrdersPage() {
     <Page>
       <PageHeader
         title="Orders"
-        description="Filter, update status, and open order details."
+        description="Paid orders only. Filter by status and date, then open details."
         actions={
           <>
           <Select
