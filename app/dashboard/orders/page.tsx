@@ -271,7 +271,7 @@ export default function OrdersPage() {
       <Card>
         <CardBody className="p-0">
           <div className="admin-scroll overflow-x-auto">
-          <table className="min-w-[900px] w-full text-sm text-left">
+          <table className="min-w-225 w-full text-sm text-left">
             <thead className="border-b border-zinc-100 bg-zinc-50/80 text-xs font-medium uppercase tracking-wide text-zinc-500">
               <tr>
                 <th className="px-6 py-4">Order</th>
@@ -347,7 +347,7 @@ export default function OrdersPage() {
                       <Select
                         value={order.status}
                         onChange={(e) => updateStatus(order.id, e.target.value as OrderStatus)}
-                        className="h-8 min-w-[7.5rem] text-xs"
+                        className="h-8 min-w-30 text-xs"
                       >
                         <option value="pending">Pending</option>
                         <option value="confirmed">Confirmed</option>

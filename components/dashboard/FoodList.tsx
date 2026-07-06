@@ -328,7 +328,7 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
             <textarea
               placeholder="Description"
               rows={4}
-              className="min-h-[6rem] resize-y rounded-md border p-2 md:col-span-2 lg:col-span-3 whitespace-pre-wrap"
+              className="min-h-24 resize-y rounded-md border p-2 md:col-span-2 lg:col-span-3 whitespace-pre-wrap"
               value={formData.description}
               onChange={(e) => setFormData({...formData, description: e.target.value})}
             />
@@ -365,7 +365,7 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
       )}
 
       <div className="rounded-2xl border border-gray-100 bg-white shadow-lg overflow-x-auto">
-        <table className="min-w-[1000px] w-full text-sm text-left">
+        <table className="min-w-250 w-full text-sm text-left">
           <thead className="bg-gray-50/50 text-gray-500 font-bold uppercase tracking-wider text-xs border-b border-gray-100">
             <tr>
               <th className="px-6 py-4">Image</th>
