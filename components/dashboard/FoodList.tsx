@@ -61,24 +61,55 @@ export function FoodList({ selectedCategoryId }: { selectedCategoryId?: number |
       return
     }
 
-    const payload = {
+    const parsedPrice = parseFloat(formData.price)
+
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      alert('Please enter a valid price')
+      return
+    }
+
+    const payload: {
+      name: string
+      description: string
+      price: number
+      image_url: string
+      category_id: number
+      is_available: boolean
+      display_price?: number
+    } = {
       name: formData.name,
       description: formData.description,
-      price: parseFloat(formData.price),
+      price: parsedPrice,
       image_url: formData.image_url,
       category_id: parseInt(formData.category_id),
-      is_available: formData.is_available
+      is_available: formData.is_available,
     }
 
     let error
 
     if (editingId) {
+      const { count: optionGroupCount, error: optionGroupError } = await supabase
+        .from('option_groups')
+        .select('*', { count: 'exact', head: true })
+        .eq('food_id', editingId)
+
+      if (optionGroupError) {
+        alert('Error checking food options: ' + optionGroupError.message)
+        return
+      }
+
+      if ((optionGroupCount || 0) === 0) {
+        payload.display_price = parsedPrice
+      }
+
       const { error: updateError } = await supabase
         .from('foods')
         .update(payload)
         .eq('id', editingId)
       error = updateError
     } else {
+      payload.display_price = parsedPrice
+
       const { error: insertError } = await supabase
         .from('foods')
         .insert([payload])
